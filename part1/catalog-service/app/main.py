@@ -1,0 +1,70 @@
+from __future__ import annotations
+from contextlib import asynccontextmanager
+import structlog
+import uuid
+from fastapi import FastAPI, Request
+from fastapi.responses import JSONResponse
+
+from app.config import get_settings
+from app.database import init_db, close_db, check_db_connection
+
+logger = structlog.get_logger()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    settings = get_settings()
+    await init_db(settings)
+    logger.info("catalog_service_started", version=settings.APP_VERSION)
+    yield
+    await close_db()
+    logger.info("catalog_service_stopped")
+
+
+app = FastAPI(
+    title="Catalog Service",
+    version="1.0.0",
+    lifespan=lifespan,
+)
+
+
+# ── Correlation ID middleware ──────────────────────────────────────────────────
+@app.middleware("http")
+async def correlation_id_middleware(request: Request, call_next):
+    correlation_id = request.headers.get("X-Request-ID") or str(uuid.uuid4())
+    request.state.correlation_id = correlation_id
+    response = await call_next(request)
+    response.headers["X-Request-ID"] = correlation_id
+    return response
+
+
+# ── Global error handler ───────────────────────────────────────────────────────
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.error("unhandled_exception", error=str(exc), path=request.url.path)
+    return JSONResponse(
+        status_code=500,
+        content={"error": {"code": "INTERNAL_ERROR", "message": "Internal server error", "details": {}}},
+    )
+
+
+# ── Health ─────────────────────────────────────────────────────────────────────
+@app.get("/health")
+async def health():
+    db_ok = await check_db_connection()
+    return {
+        "status": "ok" if db_ok else "degraded",
+        "db": "connected" if db_ok else "disconnected",
+        "version": get_settings().APP_VERSION,
+    }
+
+
+# ── Routes ─────────────────────────────────────────────────────────────────────
+from app.api import templates, functions, subsystems, rates, documents, internal
+
+app.include_router(templates.router, prefix="/api/catalog")
+app.include_router(functions.router, prefix="/api/catalog")
+app.include_router(subsystems.router, prefix="/api/catalog")
+app.include_router(rates.router, prefix="/api/catalog")
+app.include_router(documents.router, prefix="/api/catalog")
+app.include_router(internal.router)
