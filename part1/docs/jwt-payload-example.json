@@ -1,0 +1,45 @@
+{
+  "_comment": "Структура JWT access-токена, выпускаемого Auth Service (RS256). Декодировать: jwt.io или python -c \"import jwt; print(jwt.decode(TOKEN, options={'verify_signature': False}))\"",
+
+  "header": {
+    "alg": "RS256",
+    "typ": "JWT"
+  },
+
+  "payload": {
+    "sub":          "bbbbbbbb-0000-0000-0000-000000000001",
+    "org_id":       "cccccccc-0000-0000-0000-000000000001",
+    "roles": [
+      {
+        "project_id": "aaaaaaaa-0000-0000-0000-000000000001",
+        "role":       "pm",
+        "side":       "customer"
+      }
+    ],
+    "is_superadmin": false,
+    "iat": 1741996800,
+    "exp": 1741997700,
+    "jti": "e3b0c442-98fc-1c14-9afb-f4c8996fb924"
+  },
+
+  "_field_descriptions": {
+    "sub":          "UUID пользователя (стандартное поле JWT — subject)",
+    "org_id":       "UUID организации пользователя",
+    "roles":        "Массив ролей в проектах: project_id (UUID проекта), role (pm|admin|analyst|superadmin|pm_contractor|admin_contractor|analyst_contractor), side (customer|contractor)",
+    "is_superadmin":"Надпроектный флаг — доступ ко всем ресурсам без проверки roles",
+    "iat":          "Issued At — время выпуска (Unix timestamp)",
+    "exp":          "Expiration — срок действия, по умолчанию iat + 900 секунд (15 мин)",
+    "jti":          "JWT ID — уникальный идентификатор токена (UUID4), зарезервирован для blacklist"
+  },
+
+  "_notes": [
+    "Алгоритм: RS256 (RSA + SHA-256). Auth подписывает приватным ключом, все сервисы верифицируют через публичный ключ.",
+    "Публичный ключ: GET /.well-known/jwks.json (Auth Service, порт 8001).",
+    "В dev-режиме Catalog читает ключ из файла JWT_PUBLIC_KEY_PATH вместо JWKS.",
+    "refresh_token передаётся только через httpOnly cookie (путь /api/auth/refresh), в JWT не включён.",
+    "side вычисляется Auth Service при логине на основе project.customer_org_id / contractor_org_id.",
+    "Один пользователь может иметь роли в нескольких проектах одновременно (массив roles)."
+  ],
+
+  "_get_real_token": "curl -s -X POST http://localhost:8001/api/auth/login -H 'Content-Type: application/json' -d '{\"email\":\"admin@example.com\",\"password\":\"Admin1234!\"}' | jq .access_token"
+}

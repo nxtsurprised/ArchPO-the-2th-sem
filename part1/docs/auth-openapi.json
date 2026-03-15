@@ -1,0 +1,31 @@
+{
+  "_note": "Это файл-заглушка. Для получения реальной спецификации выполните:",
+  "_command": "curl -s http://localhost:8001/openapi.json | python3 -m json.tool > docs/auth-openapi.json",
+  "_requirement": "Auth Service должен быть запущен (порт 8001)",
+
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Auth Service",
+    "version": "1.0.0",
+    "description": "Аутентификация, авторизация, управление пользователями и ролями. ГОСТ 34 — Система формирования отчётной документации."
+  },
+  "servers": [{ "url": "http://localhost:8001" }],
+
+  "paths": {
+    "POST /api/auth/login":              "Вход по email + пароль (+ опциональный TOTP). Возвращает access_token; refresh_token — в httpOnly cookie.",
+    "POST /api/auth/refresh":            "Ротация токенов по refresh_token из cookie.",
+    "POST /api/auth/logout":             "Инвалидация сессии. Удаляет cookie.",
+    "POST /api/auth/password/reset-request": "Инициация сброса пароля (заглушка — email не отправляется в MVP).",
+    "GET  /api/me":                      "Профиль текущего пользователя (из JWT).",
+    "PUT  /api/me/password":             "Смена пароля.",
+    "POST /api/me/totp/enable":          "Активация TOTP 2FA.",
+    "DELETE /api/me/totp":               "Отключение TOTP.",
+    "GET  /api/admin/users":             "Список пользователей (admin/superadmin).",
+    "POST /api/admin/users":             "Создание пользователя.",
+    "PUT  /api/admin/users/:id/roles":   "Назначение ролей в проекте.",
+    "GET  /api/superadmin/users":        "Список всех пользователей (superadmin).",
+    "GET  /.well-known/jwks.json":       "Публичный ключ RS256 для верификации JWT (кешируется 1 час).",
+    "GET  /internal/audit":              "Аудит-лог (X-Internal-Secret).",
+    "GET  /health":                      "Статус сервиса и БД."
+  }
+}
