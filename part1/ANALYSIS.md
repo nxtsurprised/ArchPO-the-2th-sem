@@ -85,192 +85,192 @@
 
 ## 2. Auth Service
 
-### ✅ Реализовано
+### Реализовано
 
 #### Аутентификация (public endpoints)
 | Метод | Путь | Статус | Примечание |
 |-------|------|--------|-----------|
-| POST | `/api/auth/login` | ✅ | Argon2id, TOTP, httpOnly cookie для refresh |
-| POST | `/api/auth/refresh` | ✅ | Ротация refresh-токена |
-| POST | `/api/auth/logout` | ✅ | Инвалидация сессии, удаление cookie |
-| POST | `/api/auth/password/reset-request` | ✅ частично | Заглушка: всегда 200, письмо не отправляется |
-| POST | `/api/auth/password/reset-confirm` | ⚠️ | Заглушка: всегда 400 NOT_IMPLEMENTED |
+| POST | `/api/auth/login` | Реализовано | Argon2id, TOTP, httpOnly cookie для refresh |
+| POST | `/api/auth/refresh` | Реализовано | Ротация refresh-токена |
+| POST | `/api/auth/logout` | Реализовано | Инвалидация сессии, удаление cookie |
+| POST | `/api/auth/password/reset-request` | Реализовано частично | Заглушка: всегда 200, письмо не отправляется |
+| POST | `/api/auth/password/reset-confirm` | Заглушка | Всегда возвращает 400 NOT_IMPLEMENTED |
 
 #### Профиль и 2FA (требуется JWT)
 | Метод | Путь | Статус | Примечание |
 |-------|------|--------|-----------|
-| GET | `/api/auth/me` | ✅ | Роли по проектам, флаг 2FA |
-| PUT | `/api/auth/me/profile` | ✅ | AES-256 для телефона, аудит diff |
-| PUT | `/api/auth/me/password` | ✅ | Политика, история 10 паролей |
-| POST | `/api/auth/me/2fa/setup` | ✅ | TOTP секрет + QR URI + backup codes |
-| POST | `/api/auth/me/2fa/confirm` | ✅ | Активация устройства |
-| DELETE | `/api/auth/me/2fa` | ✅ | Проверка is_2fa_required |
-| GET | `/api/auth/me/personal-data` | ✅ | Расшифровка телефона, аудит доступа |
-| POST | `/api/auth/me/deactivate` | ✅ | Обезличивание (MVP: мгновенно) |
+| GET | `/api/auth/me` | Реализовано | Роли по проектам, флаг 2FA |
+| PUT | `/api/auth/me/profile` | Реализовано | AES-256 для телефона, аудит diff |
+| PUT | `/api/auth/me/password` | Реализовано | Политика, история 10 паролей |
+| POST | `/api/auth/me/2fa/setup` | Реализовано | TOTP секрет + QR URI + backup codes |
+| POST | `/api/auth/me/2fa/confirm` | Реализовано | Активация устройства |
+| DELETE | `/api/auth/me/2fa` | Реализовано | Проверка is_2fa_required |
+| GET | `/api/auth/me/personal-data` | Реализовано | Расшифровка телефона, аудит доступа |
+| POST | `/api/auth/me/deactivate` | Реализовано | Обезличивание (MVP: мгновенно) |
 
 #### Администрирование (роль admin/pm)
 | Метод | Путь | Статус | Примечание |
 |-------|------|--------|-----------|
-| GET | `/api/auth/users` | ✅ | Маскирование ПДн для не-админов, пагинация |
-| POST | `/api/auth/users` | ✅ | Проверка cross-org, политика паролей |
-| PATCH | `/api/auth/users/:id/roles` | ✅ | Upsert роли в проекте |
-| POST | `/api/auth/users/:id/deactivate` | ✅ | Проверка cross-org |
-| POST | `/api/auth/users/:id/unlock` | ✅ | Сброс failed_login_attempts |
-| POST | `/api/auth/users/:id/force-logout` | ✅ | Отзыв всех сессий |
-| GET | `/api/auth/audit` | ✅ | Фильтры: user_id, action, from/to |
+| GET | `/api/auth/users` | Реализовано | Маскирование ПДн для не-админов, пагинация |
+| POST | `/api/auth/users` | Реализовано | Проверка cross-org, политика паролей |
+| PATCH | `/api/auth/users/:id/roles` | Реализовано | Upsert роли в проекте |
+| POST | `/api/auth/users/:id/deactivate` | Реализовано | Проверка cross-org |
+| POST | `/api/auth/users/:id/unlock` | Реализовано | Сброс failed_login_attempts |
+| POST | `/api/auth/users/:id/force-logout` | Реализовано | Отзыв всех сессий |
+| GET | `/api/auth/audit` | Реализовано | Фильтры: user_id, action, from/to |
 
 #### Superadmin
 | Метод | Путь | Статус |
 |-------|------|--------|
-| GET | `/api/auth/organizations` | ✅ |
-| POST | `/api/auth/organizations` | ✅ |
-| PUT | `/api/auth/organizations/:id` | ✅ |
-| GET | `/api/auth/projects` | ✅ |
-| POST | `/api/auth/projects` | ✅ |
-| PUT | `/api/auth/projects/:id` | ✅ |
-| POST | `/api/auth/projects/:id/archive` | ✅ |
-| GET | `/api/auth/audit/unified` | ✅ |
-| GET | `/api/auth/audit/resource/:id/timeline` | ✅ |
-| GET | `/api/auth/audit/user/:id/activity` | ✅ |
+| GET | `/api/auth/organizations` | Реализовано |
+| POST | `/api/auth/organizations` | Реализовано |
+| PUT | `/api/auth/organizations/:id` | Реализовано |
+| GET | `/api/auth/projects` | Реализовано |
+| POST | `/api/auth/projects` | Реализовано |
+| PUT | `/api/auth/projects/:id` | Реализовано |
+| POST | `/api/auth/projects/:id/archive` | Реализовано |
+| GET | `/api/auth/audit/unified` | Реализовано |
+| GET | `/api/auth/audit/resource/:id/timeline` | Реализовано |
+| GET | `/api/auth/audit/user/:id/activity` | Реализовано |
 
 #### Internal API
 | Метод | Путь | Статус |
 |-------|------|--------|
-| GET | `/.well-known/jwks.json` | ✅ |
-| GET | `/internal/users/:id` | ✅ |
-| POST | `/internal/users/batch` | ✅ |
-| GET | `/internal/users/:id/permissions` | ✅ |
-| GET | `/internal/audit` | ✅ |
+| GET | `/.well-known/jwks.json` | Реализовано |
+| GET | `/internal/users/:id` | Реализовано |
+| POST | `/internal/users/batch` | Реализовано |
+| GET | `/internal/users/:id/permissions` | Реализовано |
+| GET | `/internal/audit` | Реализовано |
 
 #### Безопасность и инфраструктура
-- ✅ RS256 JWT (асимметричная подпись)
-- ✅ Access token TTL 15 мин, Refresh token TTL 7 дней с ротацией
-- ✅ AES-256 (Fernet) шифрование телефона и TOTP-секрета
-- ✅ Argon2id для хеширования паролей (time_cost=3, memory_cost=65536)
-- ✅ Блокировка после 5 неудачных попыток (30 мин)
-- ✅ Политика паролей (длина, категории, история, срок действия)
-- ✅ Маскирование ПДн в API (email, ФИО)
-- ✅ Обезличивание при деактивации (152-ФЗ)
-- ✅ Полный аудит (append-only log)
-- ✅ Seed данные: роли, superadmin, тестовые организации/проект
-- ✅ Alembic миграции (1 файл с начальной схемой)
+- RS256 JWT (асимметричная подпись)
+- Access token TTL 15 мин, Refresh token TTL 7 дней с ротацией
+- AES-256 (Fernet) шифрование телефона и TOTP-секрета
+- Argon2id для хеширования паролей (time_cost=3, memory_cost=65536)
+- Блокировка после 5 неудачных попыток (30 мин)
+- Политика паролей (длина, категории, история, срок действия)
+- Маскирование ПДн в API (email, ФИО)
+- Обезличивание при деактивации (152-ФЗ)
+- Полный аудит (append-only log)
+- Seed данные: роли, superadmin, тестовые организации/проект
+- Alembic миграции (1 файл с начальной схемой)
 
-### ❌ Не реализовано / Заглушки
+### Не реализовано / Заглушки
 
 | Функция | Статус | Примечание |
 |---------|--------|-----------|
-| `POST /api/auth/password/reset-confirm` | ⚠️ заглушка | Логика сброса по токену из email не реализована |
-| `GET /api/auth/audit/export` | ❌ | Выгрузка аудита в .xlsx отсутствует (openpyxl установлен) |
-| Отправка email при блокировке | ❌ | aiosmtplib установлен, интеграция не реализована |
-| Rate limiting на `/auth/login` | ❌ | slowapi установлен, middleware не подключён |
-| Прогрессивная задержка при неудачных входах | ❌ | Только блокировка, без задержки 0/1/2/4 сек |
-| Ограничение MAX_CONCURRENT_SESSIONS=3 | ❌ | Конфигурация есть, логика вытеснения не реализована |
-| Idle timeout (30 мин) | ❌ | Конфигурация есть, проверка не реализована |
-| Alembic: миграции 002, 003 | ❌ | В спецификации: `002_sessions_audit.py`, `003_totp_consent.py`; только `001_initial_schema.py` |
+| `POST /api/auth/password/reset-confirm` | Заглушка | Логика сброса по токену из email не реализована |
+| `GET /api/auth/audit/export` | Не реализовано | Выгрузка аудита в .xlsx отсутствует (openpyxl установлен) |
+| Отправка email при блокировке | Не реализовано | aiosmtplib установлен, интеграция не реализована |
+| Rate limiting на `/auth/login` | Не реализовано | slowapi установлен, middleware не подключён |
+| Прогрессивная задержка при неудачных входах | Не реализовано | Только блокировка, без задержки 0/1/2/4 сек |
+| Ограничение MAX_CONCURRENT_SESSIONS=3 | Не реализовано | Конфигурация есть, логика вытеснения не реализована |
+| Idle timeout (30 мин) | Не реализовано | Конфигурация есть, проверка не реализована |
+| Alembic: миграции 002, 003 | Не реализовано | В спецификации: `002_sessions_audit.py`, `003_totp_consent.py`; только `001_initial_schema.py` |
 
 ---
 
 ## 3. Catalog Service
 
-### ✅ Реализовано
+### Реализовано
 
 #### Шаблоны
 | Метод | Путь | Статус | Примечание |
 |-------|------|--------|-----------|
-| GET | `/api/catalog/templates` | ✅ | Фильтры: project_id, type |
-| GET | `/api/catalog/templates/:id` | ✅ | |
-| POST | `/api/catalog/templates` | ✅ | Проверка ролей, аудит |
-| PUT | `/api/catalog/templates/:id` | ✅ | Защита системных шаблонов |
-| DELETE | `/api/catalog/templates/:id` | ✅ | 409 для is_system=true |
+| GET | `/api/catalog/templates` | Реализовано | Фильтры: project_id, type |
+| GET | `/api/catalog/templates/:id` | Реализовано | |
+| POST | `/api/catalog/templates` | Реализовано | Проверка ролей, аудит |
+| PUT | `/api/catalog/templates/:id` | Реализовано | Защита системных шаблонов |
+| DELETE | `/api/catalog/templates/:id` | Реализовано | 409 для is_system=true |
 
 #### Справочник функций
 | Метод | Путь | Статус | Примечание |
 |-------|------|--------|-----------|
-| GET | `/api/catalog/functions` | ✅ | Фильтры: project_id, category, subsystem_id, q |
-| GET | `/api/catalog/functions/:id` | ✅ | |
-| POST | `/api/catalog/functions` | ✅ | |
-| PUT | `/api/catalog/functions/:id` | ✅ | Cost/priority — только pm |
-| DELETE | `/api/catalog/functions/:id` | ✅ | Soft delete (status=deleted) |
+| GET | `/api/catalog/functions` | Реализовано | Фильтры: project_id, category, subsystem_id, q |
+| GET | `/api/catalog/functions/:id` | Реализовано | |
+| POST | `/api/catalog/functions` | Реализовано | |
+| PUT | `/api/catalog/functions/:id` | Реализовано | Cost/priority — только pm |
+| DELETE | `/api/catalog/functions/:id` | Реализовано | Soft delete (status=deleted) |
 
 #### Подсистемы
 | Метод | Путь | Статус | Примечание |
 |-------|------|--------|-----------|
-| GET | `/api/catalog/subsystems` | ✅ | Сортировка по order |
-| POST | `/api/catalog/subsystems` | ✅ | |
-| PUT | `/api/catalog/subsystems/:id` | ✅ | |
-| PUT | `/api/catalog/subsystems/reorder` | ✅ | |
-| DELETE | `/api/catalog/subsystems/:id` | ✅ | 409 при наличии активных функций |
+| GET | `/api/catalog/subsystems` | Реализовано | Сортировка по order |
+| POST | `/api/catalog/subsystems` | Реализовано | |
+| PUT | `/api/catalog/subsystems/:id` | Реализовано | |
+| PUT | `/api/catalog/subsystems/reorder` | Реализовано | |
+| DELETE | `/api/catalog/subsystems/:id` | Реализовано | 409 при наличии активных функций |
 
 #### Ставки
 | Метод | Путь | Статус | Примечание |
 |-------|------|--------|-----------|
-| GET | `/api/catalog/rates` | ✅ | |
-| PUT | `/api/catalog/rates/:project_id` | ✅ | Upsert |
+| GET | `/api/catalog/rates` | Реализовано | |
+| PUT | `/api/catalog/rates/:project_id` | Реализовано | Upsert |
 
 #### Документы
 | Метод | Путь | Статус | Примечание |
 |-------|------|--------|-----------|
-| GET | `/api/catalog/documents` | ✅ | Фильтры: project_id, type |
-| GET | `/api/catalog/documents/:id` | ✅ | |
-| POST | `/api/catalog/documents` | ✅ | |
-| PUT | `/api/catalog/documents/:id` | ✅ | 409 при статусе pending/approved |
-| DELETE | `/api/catalog/documents/:id` | ✅ | |
-| POST | `/api/catalog/documents/:id/validate` | ✅ | Валидация полноты документа |
+| GET | `/api/catalog/documents` | Реализовано | Фильтры: project_id, type |
+| GET | `/api/catalog/documents/:id` | Реализовано | |
+| POST | `/api/catalog/documents` | Реализовано | |
+| PUT | `/api/catalog/documents/:id` | Реализовано | 409 при статусе pending/approved |
+| DELETE | `/api/catalog/documents/:id` | Реализовано | |
+| POST | `/api/catalog/documents/:id/validate` | Реализовано | Валидация полноты документа |
 
 #### Internal API
 | Метод | Путь | Статус |
 |-------|------|--------|
-| GET | `/internal/documents/:id/render-bundle` | ✅ |
-| GET | `/internal/audit` | ✅ |
+| GET | `/internal/documents/:id/render-bundle` | Реализовано |
+| GET | `/internal/audit` | Реализовано |
 
-### ❌ Не реализовано
+### Не реализовано
 
 | Функция | Статус | Примечание |
 |---------|--------|-----------|
-| `DELETE /functions/:id` — 409 при привязке к согласованному документу | ❌ | Soft delete выполняется без проверки статуса документов в Workflow |
-| `PATCH /internal/functions/batch-update-refs` | ❌ | Endpoint для обратной связи от Generation (обновление doc_refs.tz_section) отсутствует |
+| `DELETE /functions/:id` — 409 при привязке к согласованному документу | Не реализовано | Soft delete выполняется без проверки статуса документов в Workflow |
+| `PATCH /internal/functions/batch-update-refs` | Не реализовано | Endpoint для обратной связи от Generation (обновление doc_refs.tz_section) отсутствует |
 
 ---
 
 ## 4. Generation Service
 
-### ✅ Реализовано
+### Реализовано
 
 #### API
 | Метод | Путь | Статус | Примечание |
 |-------|------|--------|-----------|
-| POST | `/api/generation/jobs` | ✅ | Idempotency: возвращает существующий job |
-| GET | `/api/generation/jobs/:job_id` | ✅ | Статусы: pending/processing/completed/failed |
-| GET | `/api/generation/jobs/:job_id/download` | ✅ | SHA-256 проверка, redirect на presigned URL |
-| GET | `/api/generation/documents/:document_id/files` | ✅ | История генераций |
-| GET | `/internal/audit` | ✅ | In-memory аудит |
+| POST | `/api/generation/jobs` | Реализовано | Idempotency: возвращает существующий job |
+| GET | `/api/generation/jobs/:job_id` | Реализовано | Статусы: pending/processing/completed/failed |
+| GET | `/api/generation/jobs/:job_id/download` | Реализовано | SHA-256 проверка, redirect на presigned URL |
+| GET | `/api/generation/documents/:document_id/files` | Реализовано | История генераций |
+| GET | `/internal/audit` | Реализовано | In-memory аудит |
 
 #### Пайплайн генерации
 | Этап | Компонент | Статус | Примечание |
 |------|-----------|--------|-----------|
-| 1. Валидация | `validator.py` / `BundleValidator` | ✅ | Проверка обязательных полей |
-| 2. Диспетчер секций | `section_renderer.py` / `SectionRenderer` | ✅ | Маршрутизация по source-типу |
-| 3а. Ручные секции | `renderers/manual_renderer.py` | ✅ | Заполненные пользователем поля |
-| 3б. Функции | `renderers/function_renderer.py` | ✅ | Группировка по подсистемам, H3/H4/paragraphs |
-| 3в. Статический контент | `renderers/static_renderer.py` | ✅ | |
-| 4. Форматирование | `formatters/gost_formatter.py` | ✅ | ГОСТ 2.105-2019, STYLE_MAP, fallback-стили |
-| 5а. Сборка .docx | `formatters/docx_builder.py` | ✅ | python-docx, поддержка .dotx шаблона |
-| 5б. Сборка .xlsx | `formatters/xlsx_builder.py` | ✅ | openpyxl, 3 листа, формулы НМЦК |
-| 6. Сохранение | `storage/minio_client.py` | ✅ | MinIO, SHA-256, presigned URL |
-| 7. Аудит | `services/audit_store.py` | ✅ | Запись событий generation.start/complete/failed/download |
+| 1. Валидация | `validator.py` / `BundleValidator` | Реализовано | Проверка обязательных полей |
+| 2. Диспетчер секций | `section_renderer.py` / `SectionRenderer` | Реализовано | Маршрутизация по source-типу |
+| 3а. Ручные секции | `renderers/manual_renderer.py` | Реализовано | Заполненные пользователем поля |
+| 3б. Функции | `renderers/function_renderer.py` | Реализовано | Группировка по подсистемам, H3/H4/paragraphs |
+| 3в. Статический контент | `renderers/static_renderer.py` | Реализовано | |
+| 4. Форматирование | `formatters/gost_formatter.py` | Реализовано | ГОСТ 2.105-2019, STYLE_MAP, fallback-стили |
+| 5а. Сборка .docx | `formatters/docx_builder.py` | Реализовано | python-docx, поддержка .dotx шаблона |
+| 5б. Сборка .xlsx | `formatters/xlsx_builder.py` | Реализовано | openpyxl, 3 листа, формулы НМЦК |
+| 6. Сохранение | `storage/minio_client.py` | Реализовано | MinIO, SHA-256, presigned URL |
+| 7. Аудит | `services/audit_store.py` | Реализовано | Запись событий generation.start/complete/failed/download |
 
-### ❌ Не реализовано
+### Не реализовано
 
 | Функция | Статус | Примечание |
 |---------|--------|-----------|
-| Этап 6: обратная связь в Catalog | ❌ | `PATCH /internal/functions/batch-update-refs` после генерации не вызывается |
-| 3 retry с экспоненциальной задержкой при отказе MinIO | ⚠️ | Спецификация требует retry, реализация не подтверждена |
+| Этап 6: обратная связь в Catalog | Не реализовано | `PATCH /internal/functions/batch-update-refs` после генерации не вызывается |
+| 3 retry с экспоненциальной задержкой при отказе MinIO | Не подтверждено | Спецификация требует retry, реализация в коде не обнаружена |
 
 ---
 
 ## 5. Workflow Service
 
-### ❌ Не реализован
+### Не реализован
 
 Workflow Service объявлен в `docker-compose.yml` (порт 8004, БД workflow-postgres), однако **директория `workflow-service/` в репозитории отсутствует**. Сервис ни в каком виде не реализован.
 
@@ -286,10 +286,10 @@ Workflow Service объявлен в `docker-compose.yml` (порт 8004, БД w
 
 | Микросервис | Реализовано API | Не реализовано | Инфраструктура |
 |-------------|-----------------|----------------|----------------|
-| **Auth Service** | 28 / 30 эндпоинтов | Экспорт аудита в xlsx, реальный reset-confirm, rate limiting, email-уведомления | PostgreSQL ✅ |
-| **Catalog Service** | 17 / 17 эндпоинтов | batch-update-refs, проверка при soft-delete функции | MongoDB ✅ |
-| **Generation Service** | 5 / 5 эндпоинтов, полный pipeline | Обратная связь с Catalog | MinIO ✅ |
-| **Workflow Service** | 0 / N эндпоинтов | Весь сервис | PostgreSQL (не заполнен) |
+| **Auth Service** | 28 / 30 эндпоинтов | Экспорт аудита в xlsx, реальный reset-confirm, rate limiting, email-уведомления | PostgreSQL (развёрнута) |
+| **Catalog Service** | 17 / 17 эндпоинтов | batch-update-refs, проверка при soft-delete функции | MongoDB (развёрнута) |
+| **Generation Service** | 5 / 5 эндпоинтов, полный pipeline | Обратная связь с Catalog | MinIO (развёрнута) |
+| **Workflow Service** | 0 / N эндпоинтов | Весь сервис | PostgreSQL (не заполнена) |
 
 ### Общие замечания
 
