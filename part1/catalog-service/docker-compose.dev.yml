@@ -1,0 +1,25 @@
+# Dev-override: JWT верифицируется локально (без Auth Service)
+# Запуск: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# После старта сгенерировать токен:
+#   docker exec catalog-service python3 scripts/make_dev_token.py [role] [side]
+
+version: "3.9"
+
+services:
+  catalog-service:
+    environment:
+      JWKS_URL: ""
+      JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
+    volumes:
+      - catalog-dev-keys:/keys
+
+  catalog-seed:
+    environment:
+      JWKS_URL: ""
+      JWT_PUBLIC_KEY_PATH: /keys/jwt_public.pem
+    volumes:
+      - catalog-dev-keys:/keys
+
+volumes:
+  catalog-dev-keys:

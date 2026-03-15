@@ -49,14 +49,6 @@ async def update_rates(
 ):
     require_project_role(["pm", "superadmin"], project_id, user)
 
-    rates = await Rates.find_one({"project_id": project_id})
-    if not rates:
-        rates = Rates(project_id=project_id)
-        now = _now()
-        rates.updated_by = str(user.sub)
-        rates.updated_at = now
-        await rates.insert()
-
     updates = {"updated_by": str(user.sub), "updated_at": _now()}
     if body.default_rate_per_hour is not None:
         updates["default_rate_per_hour"] = body.default_rate_per_hour
@@ -68,6 +60,12 @@ async def update_rates(
         updates["vat_rate"] = body.vat_rate
     if body.profit_margin is not None:
         updates["profit_margin"] = body.profit_margin
-    await rates.set(updates)
+
+    rates = await Rates.find_one({"project_id": project_id})
+    if not rates:
+        rates = Rates(project_id=project_id, **updates)
+        await rates.insert()
+    else:
+        await rates.set(updates)
     await write_audit("rates.update", "rates", rates.id, user=user, project_id=project_id, request=request)
     return _to_response(rates)

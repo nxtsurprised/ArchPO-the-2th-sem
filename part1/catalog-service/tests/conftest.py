@@ -115,8 +115,8 @@ async def test_app():
         pass  # Beanie already initialised above
 
     with (
-        patch("app.database.init_db", new=_noop_init),
-        patch("app.database.check_db_connection", new=AsyncMock(return_value=True)),
+        patch("app.main.init_db", new=_noop_init),
+        patch("app.main.check_db_connection", new=AsyncMock(return_value=True)),
     ):
         yield app
 
