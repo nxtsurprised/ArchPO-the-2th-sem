@@ -1,0 +1,60 @@
+{
+  "id": "f1b2c3d4-0001-0000-0000-000000000001",
+  "project_id": "aaaaaaaa-0000-0000-0000-000000000001",
+  "subsystem_id": "s1b2c3d4-0001-0000-0000-000000000001",
+  "code": "ФБ-01",
+  "name": "Аутентификация пользователей",
+  "category": "security",
+  "priority": "must",
+  "status": "active",
+  "complexity": "medium",
+  "description": "Система должна обеспечивать многофакторную аутентификацию пользователей на основе логина/пароля с поддержкой TOTP.",
+  "requirements": [
+    {
+      "id": "req-001",
+      "text": "Система должна поддерживать вход по логину и паролю",
+      "type": "functional"
+    },
+    {
+      "id": "req-002",
+      "text": "Пароль должен соответствовать политике: минимум 8 символов, буквы верхнего/нижнего регистра, цифры",
+      "type": "functional"
+    },
+    {
+      "id": "req-003",
+      "text": "Система должна блокировать учётную запись после 5 неудачных попыток входа",
+      "type": "non_functional"
+    }
+  ],
+  "input_data": "Логин (email), пароль, опциональный TOTP-код",
+  "output_data": "JWT access-токен (15 минут), refresh-токен в httpOnly cookie (7 дней)",
+  "constraints": "Не более 5 попыток в 15 минут с одного IP. Пароль не хранится в открытом виде (argon2id).",
+  "dependencies": [],
+  "cost_params": {
+    "labor_hours": 40,
+    "rate_per_hour": 3500,
+    "complexity_coeff": 1.2,
+    "overhead_coeff": 1.15
+  },
+  "test_params": {
+    "approach": "automated",
+    "criteria": [
+      { "id": "ac-001", "text": "Успешный вход возвращает 200 и токен" },
+      { "id": "ac-002", "text": "Неверный пароль возвращает 401" },
+      { "id": "ac-003", "text": "5-я неверная попытка возвращает 423 Locked" }
+    ],
+    "test_data": "Тестовый пользователь: test@example.com / Test1234!",
+    "expected_result": "Токен действителен 15 минут, декодируется корректно"
+  },
+  "doc_refs": {
+    "tz_section": "4.2",
+    "chtz_section": "3.1",
+    "pmi_test_ids": ["PMI-AUTH-01", "PMI-AUTH-02"],
+    "nmck_row": "1"
+  },
+  "tags": ["auth", "security", "jwt"],
+  "version": 2,
+  "created_by": "bbbbbbbb-0000-0000-0000-000000000001",
+  "created_at": "2026-03-01T10:00:00+00:00",
+  "updated_at": "2026-03-10T14:30:00+00:00"
+}

@@ -1,0 +1,57 @@
+{
+  "_note": "Это файл-заглушка. Для получения реальной спецификации выполните:",
+  "_command": "curl -s http://localhost:8002/openapi.json | python3 -m json.tool > docs/catalog-openapi.json",
+  "_requirement": "Catalog Service должен быть запущен в dev-режиме (порт 8002)",
+
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Catalog Service",
+    "version": "1.0.0",
+    "description": "Шаблоны документов ГОСТ 34, справочник функций, подсистемы, ставки, документы. JWT-авторизация (Bearer RS256)."
+  },
+  "servers": [{ "url": "http://localhost:8002" }],
+
+  "paths": {
+    "GET  /health":                                         "Статус сервиса и MongoDB.",
+    "GET  /api/catalog/templates":                          "Список шаблонов (фильтр: project_id, type).",
+    "POST /api/catalog/templates":                          "Создание шаблона (pm/admin).",
+    "GET  /api/catalog/templates/:id":                      "Получение шаблона по id.",
+    "PUT  /api/catalog/templates/:id":                      "Обновление шаблона (инкремент version).",
+    "DELETE /api/catalog/templates/:id":                    "Удаление шаблона (409 для системных).",
+    "GET  /api/catalog/subsystems":                         "Список подсистем (сортировка по order).",
+    "POST /api/catalog/subsystems":                         "Создание подсистемы (pm).",
+    "PUT  /api/catalog/subsystems/reorder":                 "Переупорядочивание подсистем.",
+    "PUT  /api/catalog/subsystems/:id":                     "Обновление подсистемы.",
+    "DELETE /api/catalog/subsystems/:id":                   "Удаление подсистемы (409 если есть функции).",
+    "GET  /api/catalog/functions":                          "Список функций (фильтр: project_id, subsystem_id, category, priority, q).",
+    "POST /api/catalog/functions":                          "Создание функции.",
+    "GET  /api/catalog/functions/:id":                      "Получение функции по id.",
+    "PUT  /api/catalog/functions/:id":                      "Обновление (cost_params/priority только pm).",
+    "DELETE /api/catalog/functions/:id":                    "Мягкое удаление (status → deleted).",
+    "GET  /api/catalog/rates":                              "Ставки проекта (?project_id=...).",
+    "PUT  /api/catalog/rates/:project_id":                  "Установка/обновление ставок (pm).",
+    "GET  /api/catalog/documents":                          "Список документов (фильтр: project_id, type, page, per_page).",
+    "POST /api/catalog/documents":                          "Создание документа из шаблона.",
+    "GET  /api/catalog/documents/:id":                      "Получение документа.",
+    "PUT  /api/catalog/documents/:id":                      "Обновление (409 если status=pending/approved).",
+    "DELETE /api/catalog/documents/:id":                    "Удаление документа.",
+    "POST /api/catalog/documents/:id/validate":             "Валидация полноты заполнения.",
+    "GET  /internal/documents/:id/render-bundle":           "Render-bundle для Generation Service (X-Internal-Secret).",
+    "GET  /internal/audit":                                 "Аудит-лог (X-Internal-Secret, фильтры: project_id, user_id, from, to)."
+  },
+
+  "security": {
+    "Bearer": "Authorization: Bearer <access_token> (RS256 JWT от Auth Service или тестового ключа)"
+  },
+
+  "error_format": {
+    "description": "Единый формат ошибок для всех эндпоинтов",
+    "example": {
+      "error": {
+        "code": "FORBIDDEN",
+        "message": "Insufficient permissions",
+        "details": {}
+      }
+    }
+  }
+}
