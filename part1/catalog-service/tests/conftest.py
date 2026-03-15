@@ -110,13 +110,20 @@ async def test_app():
     # Patch database.init_db / check_db_connection so lifespan doesn't try real Mongo
     from unittest.mock import AsyncMock, patch
     from app.main import app
+    import app.database as _db_module
+
+    # Inject mock client so check_db_connection() doesn't see _motor_client=None
+    _db_module._motor_client = client
 
     async def _noop_init(settings):
         pass  # Beanie already initialised above
 
+    async def _mock_check_db():
+        return True
+
     with (
         patch("app.main.init_db", new=_noop_init),
-        patch("app.main.check_db_connection", new=AsyncMock(return_value=True)),
+        patch("app.main.check_db_connection", new=_mock_check_db),
     ):
         yield app
 
@@ -126,7 +133,7 @@ async def test_app():
 @pytest.fixture
 def auth_headers():
     """Bearer token for a pm user in a known project."""
-    project_id = "proj-test-001"
+    project_id = "aaaaaaaa-0000-0000-0000-000000000001"
     token = make_token(
         roles=[{"project_id": project_id, "role": "pm", "side": "customer"}]
     )
@@ -136,7 +143,7 @@ def auth_headers():
 @pytest.fixture
 def analyst_headers():
     """Bearer token for an analyst user."""
-    project_id = "proj-test-001"
+    project_id = "aaaaaaaa-0000-0000-0000-000000000001"
     token = make_token(
         roles=[{"project_id": project_id, "role": "analyst", "side": "contractor"}]
     )

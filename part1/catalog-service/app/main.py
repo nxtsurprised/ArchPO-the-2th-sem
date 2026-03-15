@@ -3,6 +3,7 @@ from contextlib import asynccontextmanager
 import structlog
 import uuid
 from fastapi import FastAPI, Request
+from fastapi.exceptions import HTTPException as FastAPIHTTPException
 from fastapi.responses import JSONResponse
 
 from app.config import get_settings
@@ -36,6 +37,13 @@ async def correlation_id_middleware(request: Request, call_next):
     response = await call_next(request)
     response.headers["X-Request-ID"] = correlation_id
     return response
+
+
+# ── HTTP error handler ─────────────────────────────────────────────────────────
+@app.exception_handler(FastAPIHTTPException)
+async def http_exception_handler(request: Request, exc: FastAPIHTTPException):
+    error = exc.detail if isinstance(exc.detail, dict) else {"code": "ERROR", "message": str(exc.detail)}
+    return JSONResponse(status_code=exc.status_code, content={"error": error})
 
 
 # ── Global error handler ───────────────────────────────────────────────────────

@@ -681,7 +681,7 @@ curl "http://localhost:8002/internal/audit?project_id=aaaaaaaa-0000-0000-0000-00
 
 **Ожидаемый результат:** `401 Unauthorized`
 ```json
-{ "detail": { "code": "UNAUTHORIZED", "message": "Missing or invalid Authorization header" } }
+{ "error": { "code": "UNAUTHORIZED", "message": "Missing or invalid Authorization header" } }
 ```
 
 ---
@@ -693,7 +693,7 @@ curl "http://localhost:8002/internal/audit?project_id=aaaaaaaa-0000-0000-0000-00
 
 **Ожидаемый результат:** `401 Unauthorized`
 ```json
-{ "detail": { "code": "INVALID_TOKEN", "message": "Invalid or expired token" } }
+{ "error": { "code": "INVALID_TOKEN", "message": "Invalid or expired token" } }
 ```
 
 ---

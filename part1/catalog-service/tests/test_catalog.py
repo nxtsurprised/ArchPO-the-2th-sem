@@ -14,7 +14,7 @@ from tests.conftest import make_token
 
 # ─── helpers ──────────────────────────────────────────────────────────────────
 
-PROJECT = "proj-test-001"
+PROJECT = "aaaaaaaa-0000-0000-0000-000000000001"
 
 def pm_headers() -> dict:
     token = make_token(roles=[{"project_id": PROJECT, "role": "pm", "side": "customer"}])
