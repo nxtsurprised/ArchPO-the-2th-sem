@@ -84,7 +84,9 @@ services:
   # Catalog Service
   # ============================================================
   catalog-service:
-    build: ./catalog-service
+    build:
+      context: .
+      dockerfile: catalog-service/Dockerfile
     ports:
       - "8002:8002"
     environment:
@@ -127,7 +129,9 @@ services:
   # Generation Service
   # ============================================================
   generation-service:
-    build: ./generation-service
+    build:
+      context: .
+      dockerfile: generation-service/Dockerfile
     ports:
       - "8003:8003"
     environment:
