@@ -1,4 +1,3 @@
-from __future__ import annotations
 from fastapi import Depends, HTTPException, status, Request
 
 from shared.middleware.jwt_auth import JWTAuth

@@ -1,4 +1,3 @@
-from __future__ import annotations
 import structlog
 from fastapi import Request, HTTPException
 from fastapi.exceptions import RequestValidationError
