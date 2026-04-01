@@ -2,6 +2,17 @@ version: "3.9"
 
 services:
   # ============================================================
+  # Frontend builder — копирует собранный SPA в volume для nginx
+  # ============================================================
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    volumes:
+      - frontend-dist:/output
+    restart: "no"
+
+  # ============================================================
   # API Gateway
   # ============================================================
   nginx:
@@ -11,9 +22,11 @@ services:
       - "8443:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./frontend/dist:/usr/share/nginx/html:ro
+      - frontend-dist:/usr/share/nginx/html:ro
       # - ./nginx/certs:/etc/nginx/certs:ro  # для TLS
     depends_on:
+      frontend:
+        condition: service_completed_successfully
       auth-service:
         condition: service_healthy
       catalog-service:
@@ -249,3 +262,4 @@ volumes:
   workflow-pg-data:
   catalog-mongo-data:
   minio-data:
+  frontend-dist:
