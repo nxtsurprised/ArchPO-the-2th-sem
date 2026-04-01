@@ -1,4 +1,3 @@
-from __future__ import annotations
 from uuid import UUID
 import structlog
 from fastapi import Request, HTTPException, status
