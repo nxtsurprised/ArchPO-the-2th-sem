@@ -6,21 +6,22 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Install shared package
-COPY shared /shared
-RUN pip install --no-cache-dir -e /shared
-
+# Зависимости сервиса (включают cryptography и т.д.)
 COPY auth-service/requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Копируем shared как исходники (PYTHONPATH вместо pip install /shared)
+COPY shared/ /shared
+ENV PYTHONPATH=/shared
+
+# Копируем код сервиса
 COPY auth-service/ .
 
-# Generate RSA keys if not provided
+# Генерируем RSA-ключи если не переданы через secrets
 RUN mkdir -p /run/secrets && \
     python -c "\
 from cryptography.hazmat.primitives.asymmetric import rsa; \
 from cryptography.hazmat.primitives.serialization import Encoding, PrivateFormat, NoEncryption, PublicFormat; \
-import os; \
 priv = '/run/secrets/jwt_private.pem'; \
 pub = '/run/secrets/jwt_public.pem'; \
 key = rsa.generate_private_key(public_exponent=65537, key_size=2048); \

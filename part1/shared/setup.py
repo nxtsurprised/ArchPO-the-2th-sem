@@ -9,7 +9,6 @@ setup(
         "pydantic>=2.0.0",
         "httpx>=0.26.0",
         "structlog>=24.1.0",
-        "PyJWT>=2.8.0",
-        "cryptography>=42.0.0",
+        "PyJWT[crypto]>=2.8.0",
     ],
 )
