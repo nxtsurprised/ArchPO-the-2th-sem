@@ -22,6 +22,10 @@ class Settings(BaseSettings):
     # Internal API
     INTERNAL_API_SECRET: str = "internal_secret"
 
+    # Local .dotx fallback (for dev/tests without MinIO)
+    # If set, Generation Service reads template from this path instead of MinIO.
+    DOTX_LOCAL_PATH: str | None = None
+
     # App
     APP_VERSION: str = "1.0.0"
 

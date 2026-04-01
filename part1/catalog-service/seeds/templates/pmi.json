@@ -7,11 +7,16 @@
   "is_system": true,
   "parent_id": null,
   "project_id": null,
-  "dotx_file_key": "templates/dotx-pmi.dotx",
+  "dotx_file_key": "dotx/gost-2105-template.dotx",
   "formatting": {
     "font": "Times New Roman",
     "font_size": 14,
-    "margins": { "top": 20, "bottom": 20, "left": 30, "right": 15 },
+    "margins": {
+      "top": 20,
+      "bottom": 20,
+      "left": 30,
+      "right": 15
+    },
     "line_spacing": 1.5,
     "gost_ref": "ГОСТ 2.105-2019"
   },
@@ -21,8 +26,18 @@
       "title": "Объект испытаний",
       "source": "manual",
       "fields": [
-        { "key": "system_name", "label": "Наименование системы", "type": "text", "required": true },
-        { "key": "system_version", "label": "Версия системы", "type": "text", "required": false }
+        {
+          "key": "system_name",
+          "label": "Наименование системы",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "system_version",
+          "label": "Версия системы",
+          "type": "text",
+          "required": false
+        }
       ]
     },
     {
@@ -30,7 +45,12 @@
       "title": "Цель испытаний",
       "source": "manual",
       "fields": [
-        { "key": "test_goal", "label": "Цель проведения испытаний", "type": "textarea", "required": true }
+        {
+          "key": "test_goal",
+          "label": "Цель проведения испытаний",
+          "type": "textarea",
+          "required": true
+        }
       ]
     },
     {
@@ -38,8 +58,18 @@
       "title": "Требования к программе испытаний",
       "source": "manual",
       "fields": [
-        { "key": "test_env", "label": "Требования к тестовой среде", "type": "textarea", "required": false },
-        { "key": "test_data_req", "label": "Требования к тестовым данным", "type": "textarea", "required": false }
+        {
+          "key": "test_env",
+          "label": "Требования к тестовой среде",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "test_data_req",
+          "label": "Требования к тестовым данным",
+          "type": "textarea",
+          "required": false
+        }
       ]
     },
     {
@@ -47,7 +77,12 @@
       "title": "Состав и порядок испытаний",
       "source": "manual",
       "fields": [
-        { "key": "test_sequence", "label": "Последовательность проведения испытаний", "type": "list", "required": false }
+        {
+          "key": "test_sequence",
+          "label": "Последовательность проведения испытаний",
+          "type": "list",
+          "required": false
+        }
       ]
     },
     {
@@ -55,7 +90,12 @@
       "title": "Методы испытаний",
       "source": "manual",
       "fields": [
-        { "key": "test_methods", "label": "Методы проведения испытаний", "type": "textarea", "required": false }
+        {
+          "key": "test_methods",
+          "label": "Методы проведения испытаний",
+          "type": "textarea",
+          "required": false
+        }
       ]
     },
     {

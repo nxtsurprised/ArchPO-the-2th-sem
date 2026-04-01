@@ -65,6 +65,7 @@
 
 ## Соглашения по коду
 
+
 - **Python:** PEP 8, type hints обязательны, async/await везде
 - **API:** RESTful, единый формат ошибок `{ "error": { "code": "...", "message": "...", "details": {} } }`
 - **Пагинация:** `{ "items": [...], "total": N, "page": 1, "per_page": 20 }`

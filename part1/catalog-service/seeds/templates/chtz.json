@@ -7,11 +7,16 @@
   "is_system": true,
   "parent_id": null,
   "project_id": null,
-  "dotx_file_key": "templates/dotx-chtz.dotx",
+  "dotx_file_key": "dotx/gost-2105-template.dotx",
   "formatting": {
     "font": "Times New Roman",
     "font_size": 14,
-    "margins": { "top": 20, "bottom": 20, "left": 30, "right": 15 },
+    "margins": {
+      "top": 20,
+      "bottom": 20,
+      "left": 30,
+      "right": 15
+    },
     "line_spacing": 1.5,
     "gost_ref": "ГОСТ 2.105-2019"
   },
@@ -27,8 +32,18 @@
       "title": "Назначение подсистемы",
       "source": "manual",
       "fields": [
-        { "key": "subsystem_purpose", "label": "Назначение", "type": "textarea", "required": true },
-        { "key": "subsystem_goals", "label": "Цели", "type": "list", "required": false }
+        {
+          "key": "subsystem_purpose",
+          "label": "Назначение",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "subsystem_goals",
+          "label": "Цели",
+          "type": "list",
+          "required": false
+        }
       ]
     },
     {
@@ -47,8 +62,18 @@
       "title": "Требования к программному обеспечению",
       "source": "manual",
       "fields": [
-        { "key": "software_req", "label": "Требования к ПО", "type": "textarea", "required": false },
-        { "key": "integration_req", "label": "Требования к интеграции", "type": "textarea", "required": false }
+        {
+          "key": "software_req",
+          "label": "Требования к ПО",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "integration_req",
+          "label": "Требования к интеграции",
+          "type": "textarea",
+          "required": false
+        }
       ]
     },
     {
@@ -56,7 +81,12 @@
       "title": "Требования к безопасности",
       "source": "manual",
       "fields": [
-        { "key": "security_req", "label": "Требования к информационной безопасности", "type": "textarea", "required": false }
+        {
+          "key": "security_req",
+          "label": "Требования к информационной безопасности",
+          "type": "textarea",
+          "required": false
+        }
       ]
     },
     {
@@ -64,7 +94,12 @@
       "title": "Порядок приёмки",
       "source": "manual",
       "fields": [
-        { "key": "acceptance", "label": "Порядок проведения приёмочных испытаний", "type": "textarea", "required": false }
+        {
+          "key": "acceptance",
+          "label": "Порядок проведения приёмочных испытаний",
+          "type": "textarea",
+          "required": false
+        }
       ]
     }
   ],

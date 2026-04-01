@@ -7,11 +7,16 @@
   "is_system": true,
   "parent_id": null,
   "project_id": null,
-  "dotx_file_key": "templates/dotx-gost34-tz.dotx",
+  "dotx_file_key": "dotx/gost-2105-template.dotx",
   "formatting": {
     "font": "Times New Roman",
     "font_size": 14,
-    "margins": { "top": 20, "bottom": 20, "left": 30, "right": 15 },
+    "margins": {
+      "top": 20,
+      "bottom": 20,
+      "left": 30,
+      "right": 15
+    },
     "line_spacing": 1.5,
     "gost_ref": "ГОСТ 2.105-2019"
   },
@@ -21,11 +26,36 @@
       "title": "Общие сведения",
       "source": "manual",
       "fields": [
-        { "key": "system_name", "label": "Полное наименование системы", "type": "text", "required": true },
-        { "key": "customer_name", "label": "Заказчик", "type": "text", "required": true },
-        { "key": "contractor_name", "label": "Исполнитель", "type": "text", "required": false },
-        { "key": "contract_basis", "label": "Основание для разработки", "type": "textarea", "required": false },
-        { "key": "deadlines", "label": "Плановые сроки", "type": "date_range", "required": false }
+        {
+          "key": "system_name",
+          "label": "Полное наименование системы",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "customer_name",
+          "label": "Заказчик",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "contractor_name",
+          "label": "Исполнитель",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "contract_basis",
+          "label": "Основание для разработки",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "deadlines",
+          "label": "Плановые сроки",
+          "type": "date_range",
+          "required": false
+        }
       ]
     },
     {
@@ -33,8 +63,18 @@
       "title": "Назначение и цели создания системы",
       "source": "manual",
       "fields": [
-        { "key": "purpose", "label": "Назначение системы", "type": "textarea", "required": true },
-        { "key": "goals", "label": "Цели создания системы", "type": "list", "required": true }
+        {
+          "key": "purpose",
+          "label": "Назначение системы",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "goals",
+          "label": "Цели создания системы",
+          "type": "list",
+          "required": true
+        }
       ]
     },
     {
@@ -42,8 +82,18 @@
       "title": "Характеристика объектов автоматизации",
       "source": "manual",
       "fields": [
-        { "key": "object_description", "label": "Описание объекта автоматизации", "type": "textarea", "required": false },
-        { "key": "current_state", "label": "Текущее состояние", "type": "textarea", "required": false }
+        {
+          "key": "object_description",
+          "label": "Описание объекта автоматизации",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "current_state",
+          "label": "Текущее состояние",
+          "type": "textarea",
+          "required": false
+        }
       ]
     },
     {
@@ -51,10 +101,30 @@
       "title": "Требования к системе в целом",
       "source": "manual",
       "fields": [
-        { "key": "structural_req", "label": "Требования к структуре и функционированию", "type": "textarea", "required": false },
-        { "key": "users_count", "label": "Численность и квалификация пользователей", "type": "text", "required": false },
-        { "key": "reliability_req", "label": "Требования к надёжности", "type": "textarea", "required": false },
-        { "key": "security_req", "label": "Требования к безопасности", "type": "textarea", "required": false }
+        {
+          "key": "structural_req",
+          "label": "Требования к структуре и функционированию",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "users_count",
+          "label": "Численность и квалификация пользователей",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "reliability_req",
+          "label": "Требования к надёжности",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "security_req",
+          "label": "Требования к безопасности",
+          "type": "textarea",
+          "required": false
+        }
       ]
     },
     {
@@ -73,10 +143,30 @@
       "title": "Требования к видам обеспечения",
       "source": "manual",
       "fields": [
-        { "key": "math_req", "label": "Математическое обеспечение", "type": "textarea", "required": false },
-        { "key": "info_req", "label": "Информационное обеспечение", "type": "textarea", "required": false },
-        { "key": "software_req", "label": "Программное обеспечение", "type": "textarea", "required": false },
-        { "key": "hardware_req", "label": "Техническое обеспечение", "type": "textarea", "required": false }
+        {
+          "key": "math_req",
+          "label": "Математическое обеспечение",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "info_req",
+          "label": "Информационное обеспечение",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "software_req",
+          "label": "Программное обеспечение",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "hardware_req",
+          "label": "Техническое обеспечение",
+          "type": "textarea",
+          "required": false
+        }
       ]
     },
     {
@@ -90,8 +180,18 @@
       "title": "Порядок контроля и приёмки системы",
       "source": "manual",
       "fields": [
-        { "key": "acceptance_procedure", "label": "Порядок приёмки", "type": "textarea", "required": false },
-        { "key": "acceptance_criteria", "label": "Критерии приёмки", "type": "list", "required": false }
+        {
+          "key": "acceptance_procedure",
+          "label": "Порядок приёмки",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "acceptance_criteria",
+          "label": "Критерии приёмки",
+          "type": "list",
+          "required": false
+        }
       ]
     },
     {
@@ -105,7 +205,12 @@
       "title": "Источники разработки",
       "source": "manual",
       "fields": [
-        { "key": "sources", "label": "Документы и информационные материалы", "type": "list", "required": false }
+        {
+          "key": "sources",
+          "label": "Документы и информационные материалы",
+          "type": "list",
+          "required": false
+        }
       ]
     }
   ],

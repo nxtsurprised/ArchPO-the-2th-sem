@@ -1,0 +1,10 @@
+# Override for local development: JWT_PUBLIC_KEY_PATH instead of JWKS_URL,
+# local .dotx file path, no real Auth or Catalog Service required for tests.
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up
+services:
+  generation-service:
+    environment:
+      JWKS_URL: ""
+      JWT_PUBLIC_KEY_PATH: /app/jwt_public.pem
+      DOTX_LOCAL_PATH: /app/assets/gost-2105-template.dotx
+      CATALOG_SERVICE_URL: http://catalog-service:8002
