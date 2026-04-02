@@ -5,9 +5,9 @@ from pydantic import BaseModel
 
 class DocumentCreate(BaseModel):
     project_id: str
-    template_id: str
+    template_id: str | None = None
     name: str
-    type: Literal["tz", "chtz", "pmi", "nmck"]
+    type: Literal["tz", "tp", "rp", "other"] | None = None
     function_ids: list[str] = []
     data: dict[str, Any] = {}
 

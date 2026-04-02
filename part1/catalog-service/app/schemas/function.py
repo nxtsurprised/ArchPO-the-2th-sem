@@ -41,10 +41,8 @@ class FunctionCreate(BaseModel):
     subsystem_id: str | None = None
     code: str
     name: str
-    category: Literal[
-        "security", "data_management", "reporting", "integration", "ui", "administration"
-    ] = "data_management"
-    priority: Literal["must", "should", "could", "wont"] = "should"
+    category: Literal["main", "auxiliary", "service"] = "main"
+    priority: Literal["high", "medium", "low"] = "medium"
     description: str = ""
     requirements: list[RequirementIn] = []
     input_data: str = ""
@@ -61,9 +59,7 @@ class FunctionCreate(BaseModel):
 class FunctionUpdate(BaseModel):
     subsystem_id: str | None = None
     name: str | None = None
-    category: Literal[
-        "security", "data_management", "reporting", "integration", "ui", "administration"
-    ] | None = None
+    category: Literal["main", "auxiliary", "service"] | None = None
     description: str | None = None
     requirements: list[RequirementIn] | None = None
     input_data: str | None = None
@@ -74,7 +70,7 @@ class FunctionUpdate(BaseModel):
     doc_refs: DocRefsIn | None = None
     test_params: TestParamsIn | None = None
     # These fields require pm role:
-    priority: Literal["must", "should", "could", "wont"] | None = None
+    priority: Literal["high", "medium", "low"] | None = None
     complexity: Literal["low", "medium", "high", "critical"] | None = None
     cost_params: CostParamsIn | None = None
 

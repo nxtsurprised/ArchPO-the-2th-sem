@@ -44,10 +44,8 @@ class Function(Document):
     subsystem_id: str | None = None
     code: str
     name: str
-    category: Literal[
-        "security", "data_management", "reporting", "integration", "ui", "administration"
-    ] = "data_management"
-    priority: Literal["must", "should", "could", "wont"] = "should"
+    category: Literal["main", "auxiliary", "service"] = "main"
+    priority: Literal["high", "medium", "low"] = "medium"
     status: Literal["draft", "active", "deprecated", "deleted"] = "draft"
 
     description: str = ""

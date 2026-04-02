@@ -9,9 +9,9 @@ class Document(BeanieDocument):
     id: str = Field(default_factory=lambda: str(uuid.uuid4()))
 
     project_id: str
-    template_id: str
+    template_id: str | None = None
     name: str
-    type: Literal["tz", "chtz", "pmi", "nmck"]
+    type: Literal["tz", "tp", "rp", "other"] | None = None
     status: Literal["draft", "pending", "approved", "revision", "rejected"] = "draft"
     locked: bool = False  # set by Kafka consumer on workflow events
 

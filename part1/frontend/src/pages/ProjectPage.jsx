@@ -374,7 +374,12 @@ function AddFunctionModal({ projectId, subsystems, onClose, onSuccess }) {
       });
       onSuccess();
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Ошибка создания функции');
+      const detail = err?.response?.data?.detail;
+      setError(
+        typeof detail === 'string' ? detail :
+        Array.isArray(detail) ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ') :
+        'Ошибка создания функции'
+      );
     } finally {
       setSaving(false);
     }
@@ -654,7 +659,12 @@ function CreateDocumentModal({ projectId, templates, onClose, onSuccess }) {
       });
       onSuccess();
     } catch (err) {
-      setError(err?.response?.data?.detail || 'Ошибка создания документа');
+      const detail = err?.response?.data?.detail;
+      setError(
+        typeof detail === 'string' ? detail :
+        Array.isArray(detail) ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ') :
+        'Ошибка создания документа'
+      );
     } finally {
       setSaving(false);
     }
