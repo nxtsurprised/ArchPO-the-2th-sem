@@ -31,6 +31,7 @@ class Settings(BaseSettings):
     AUTH_SERVICE_URL: str = "http://auth-service:8001"
     WORKFLOW_SERVICE_URL: str = "http://workflow-service:8004"
     INTERNAL_API_SECRET: str = "internal_secret"
+    KAFKA_BOOTSTRAP_SERVERS: str = "kafka:9092"
 
     # App
     APP_VERSION: str = "1.0.0"

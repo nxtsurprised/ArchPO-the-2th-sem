@@ -8,6 +8,7 @@ from fastapi.responses import JSONResponse
 
 from app.config import get_settings
 from app.database import init_db, close_db, check_db_connection
+from app.services import kafka_consumer
 
 logger = structlog.get_logger()
 
@@ -16,8 +17,10 @@ logger = structlog.get_logger()
 async def lifespan(app: FastAPI):
     settings = get_settings()
     await init_db(settings)
+    kafka_consumer.start_consumer(settings.KAFKA_BOOTSTRAP_SERVERS)
     logger.info("catalog_service_started", version=settings.APP_VERSION)
     yield
+    await kafka_consumer.stop_consumer()
     await close_db()
     logger.info("catalog_service_stopped")
 

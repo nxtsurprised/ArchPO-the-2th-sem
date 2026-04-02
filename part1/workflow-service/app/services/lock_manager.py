@@ -1,43 +1,39 @@
-from __future__ import annotations
 """
 Notifies Catalog Service when a document should be locked/unlocked.
 
-In MVP: fire-and-forget HTTP PATCH.
-In tests: patched out entirely.
-If Catalog returns non-2xx or is unavailable, we log and continue —
-the lock state in Workflow is authoritative.
-"""
-import httpx
-import structlog
+v2 (current): async Kafka event on topic gost34.workflow.events.
+  Catalog consumes the event and updates document status + lock flag.
+  Fire-and-forget with graceful fallback — workflow state is authoritative.
 
-from app.config import get_settings
+v1 (removed): fire-and-forget HTTP PATCH to /internal/documents/{id}/status.
+  Replaced because the HTTP endpoint didn't exist and calls were silently failing.
+"""
+import structlog
+from shared.services.events import EventEmitter
 
 logger = structlog.get_logger()
+_emitter = EventEmitter(service_name="workflow")
 
 
-async def notify_catalog_lock(document_id: str, locked: bool, status: str) -> None:
+async def notify_catalog_lock(document_id: str, locked: bool, status: str, approval_id: str = "") -> None:
     """
-    Tell Catalog to update document status and lock flag.
+    Emit a document lock/unlock event to Kafka.
 
-    document_id: Catalog document ID string.
-    locked: True to block editing, False to allow.
-    status: new document status ("draft" | "pending" | "approved" | "rejected").
+    document_id : Catalog document ID.
+    locked      : True to block editing, False to allow.
+    status      : New document status ("draft"|"pending"|"approved"|"rejected").
+    approval_id : The approval request that triggered this change (for tracing).
     """
-    settings = get_settings()
-    url = f"{settings.CATALOG_INTERNAL_URL}/internal/documents/{document_id}/status"
-    payload = {"status": status, "locked": locked}
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.patch(
-                url,
-                json=payload,
-                headers={"X-Internal-Secret": settings.INTERNAL_API_SECRET},
-            )
-            if resp.status_code >= 400:
-                logger.warning(
-                    "catalog_lock_non2xx",
-                    document_id=document_id,
-                    status_code=resp.status_code,
-                )
-    except Exception as exc:
-        logger.warning("catalog_lock_failed", document_id=document_id, error=str(exc))
+    event_type = "document.locked" if locked else "document.unlocked"
+    await _emitter.emit(
+        event_type=event_type,
+        payload={
+            "document_id": document_id,
+            "locked": locked,
+            "document_status": status,
+            "approval_id": approval_id,
+        },
+        topic="gost34.workflow.events",
+        key=document_id,
+    )
+    logger.info("lock_event_emitted", document_id=document_id, locked=locked, status=status)

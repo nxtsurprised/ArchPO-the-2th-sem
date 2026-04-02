@@ -10,14 +10,21 @@ from fastapi.responses import JSONResponse
 from app.config import get_settings
 from app.database import init_db, check_db_connection
 from app.api import approvals, dashboard, internal
+import shared.services.events as events
 
 logger = structlog.get_logger()
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    settings = get_settings()
+    events.configure(
+        bootstrap_servers=settings.KAFKA_BOOTSTRAP_SERVERS,
+        service_name="workflow",
+    )
     await init_db()
     yield
+    await events.stop_producer()
 
 
 app = FastAPI(title="Workflow Service", version="1.0.0", lifespan=lifespan)

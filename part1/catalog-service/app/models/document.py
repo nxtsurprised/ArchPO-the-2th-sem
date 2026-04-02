@@ -13,6 +13,7 @@ class Document(BeanieDocument):
     name: str
     type: Literal["tz", "chtz", "pmi", "nmck"]
     status: Literal["draft", "pending", "approved", "revision", "rejected"] = "draft"
+    locked: bool = False  # set by Kafka consumer on workflow events
 
     function_ids: list[str] = Field(default_factory=list)
     data: dict[str, Any] = Field(default_factory=lambda: {"sections": {}})

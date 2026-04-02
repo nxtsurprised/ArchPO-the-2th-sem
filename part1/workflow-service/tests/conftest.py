@@ -160,6 +160,8 @@ async def test_app(test_session_factory):
         patch("app.main.init_db", new_callable=AsyncMock),
         patch("app.main.check_db_connection", return_value=True),
         patch("app.services.approval_service.lock_manager.notify_catalog_lock", new_callable=AsyncMock),
+        patch("app.services.approval_service._emitter.emit", new_callable=AsyncMock),
+        patch("app.services.lock_manager._emitter.emit", new_callable=AsyncMock),
     ):
         yield app
 

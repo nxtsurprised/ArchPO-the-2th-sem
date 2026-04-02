@@ -15,6 +15,7 @@ class Settings(BaseSettings):
 
     INTERNAL_API_SECRET: str = "internal_secret"
     CATALOG_INTERNAL_URL: str = "http://catalog-service:8002"
+    KAFKA_BOOTSTRAP_SERVERS: str = "kafka:9092"
 
     @property
     def DATABASE_URL(self) -> str:

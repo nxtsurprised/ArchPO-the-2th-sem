@@ -13,6 +13,9 @@ from app.api.deps import TokenPayload
 from app.services.round_evaluator import evaluate_round
 from app.services import audit_service
 from app.services import lock_manager
+from shared.services.events import EventEmitter
+
+_emitter = EventEmitter(service_name="workflow")
 
 
 def _now() -> datetime:
@@ -115,7 +118,18 @@ async def submit_approval(
     db.add(first_round)
 
     if is_locked:
-        await lock_manager.notify_catalog_lock(data.document_id, locked=True, status="pending")
+        await lock_manager.notify_catalog_lock(data.document_id, locked=True, status="pending", approval_id=approval.id)
+
+    await _emitter.emit(
+        event_type="approval.submitted",
+        payload={
+            "approval_id": approval.id,
+            "document_id": data.document_id,
+            "project_id": data.project_id,
+            "approval_type": data.type,
+            "initiated_by": str(user.sub),
+        },
+    )
 
     await audit_service.write_audit(
         db,
@@ -195,7 +209,7 @@ async def decide(
 
         if approval.type != "review":
             await lock_manager.notify_catalog_lock(
-                approval.document_id, locked=True, status="pending"
+                approval.document_id, locked=True, status="pending", approval_id=approval.id
             )
 
     if approval.status != "pending":
@@ -295,14 +309,25 @@ async def decide(
             if outcome == "approved":
                 approval.is_locked = True
                 await lock_manager.notify_catalog_lock(
-                    approval.document_id, locked=True, status="approved"
+                    approval.document_id, locked=True, status="approved", approval_id=approval.id
                 )
             elif outcome in ("rejected", "revision"):
                 approval.is_locked = False
                 catalog_status = "rejected" if outcome == "rejected" else "draft"
                 await lock_manager.notify_catalog_lock(
-                    approval.document_id, locked=False, status=catalog_status
+                    approval.document_id, locked=False, status=catalog_status, approval_id=approval.id
                 )
+
+        await _emitter.emit(
+            event_type="approval.completed",
+            payload={
+                "approval_id": approval.id,
+                "document_id": approval.document_id,
+                "project_id": approval.project_id,
+                "outcome": outcome,
+                "round_number": active_round.round_number,
+            },
+        )
 
         await audit_service.write_audit(
             db,
@@ -441,7 +466,17 @@ async def cancel_approval(
     approval.is_locked = False
     approval.updated_at = _now()
 
-    await lock_manager.notify_catalog_lock(approval.document_id, locked=False, status="draft")
+    await lock_manager.notify_catalog_lock(approval.document_id, locked=False, status="draft", approval_id=approval.id)
+
+    await _emitter.emit(
+        event_type="approval.cancelled",
+        payload={
+            "approval_id": approval.id,
+            "document_id": approval.document_id,
+            "project_id": approval.project_id,
+            "cancelled_by": str(user.sub),
+        },
+    )
 
     await audit_service.write_audit(
         db,
