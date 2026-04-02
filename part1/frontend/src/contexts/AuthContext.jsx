@@ -73,9 +73,9 @@ export function AuthProvider({ children }) {
 
   const login = useCallback(async (email, password) => {
     const response = await authApi.login(email, password);
-    const { access_token, refresh_token } = response.data;
+    const { access_token } = response.data;
     localStorage.setItem('access_token', access_token);
-    localStorage.setItem('refresh_token', refresh_token);
+    // refresh_token is managed as httpOnly cookie by the server
     await loadUser();
     return response.data;
   }, [loadUser]);
@@ -87,7 +87,6 @@ export function AuthProvider({ children }) {
       // ignore errors on logout
     }
     localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
     setUser(null);
   }, []);
 

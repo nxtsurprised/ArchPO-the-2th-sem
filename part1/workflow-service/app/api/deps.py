@@ -26,6 +26,19 @@ class TokenPayload:
     is_superadmin: bool = False
 
 
+# Module-level JWKS client — created once, caches keys for 5 minutes
+_jwks_client = None
+
+
+def _get_jwks_client():
+    global _jwks_client
+    if _jwks_client is None:
+        from jwt import PyJWKClient
+        settings = get_settings()
+        _jwks_client = PyJWKClient(settings.JWKS_URL, cache_jwk_set=True, lifespan=300)
+    return _jwks_client
+
+
 async def _decode_token(token: str) -> dict:
     import jwt as pyjwt
 
@@ -37,9 +50,7 @@ async def _decode_token(token: str) -> dict:
         return pyjwt.decode(token, public_key, algorithms=["RS256"])
 
     if settings.JWKS_URL:
-        from jwt import PyJWKClient
-
-        client = PyJWKClient(settings.JWKS_URL, cache_keys=True)
+        client = _get_jwks_client()
         signing_key = client.get_signing_key_from_jwt(token)
         return pyjwt.decode(token, signing_key.key, algorithms=["RS256"])
 

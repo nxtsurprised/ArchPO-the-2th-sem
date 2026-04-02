@@ -57,20 +57,11 @@ client.interceptors.response.use(
       originalRequest._retry = true;
       isRefreshing = true;
 
-      const refreshToken = localStorage.getItem('refresh_token');
-      if (!refreshToken) {
-        isRefreshing = false;
-        redirectToLogin();
-        return Promise.reject(error);
-      }
-
       try {
-        const response = await axios.post('/api/auth/refresh', {
-          refresh_token: refreshToken,
-        });
-        const { access_token, refresh_token } = response.data;
+        // refresh_token is sent automatically as httpOnly cookie
+        const response = await axios.post('/api/auth/refresh');
+        const { access_token } = response.data;
         localStorage.setItem('access_token', access_token);
-        localStorage.setItem('refresh_token', refresh_token);
 
         client.defaults.headers.Authorization = `Bearer ${access_token}`;
         originalRequest.headers.Authorization = `Bearer ${access_token}`;
