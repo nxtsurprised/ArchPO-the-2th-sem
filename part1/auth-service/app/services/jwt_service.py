@@ -18,6 +18,10 @@ def _load_public_key() -> str:
     return Path(get_settings().JWT_PUBLIC_KEY_PATH).read_text()
 
 
+# Fixed key ID used in both JWT header and JWKS — must match for PyJWKClient to find the key
+JWT_KID = "auth-service-key-1"
+
+
 def create_access_token(
     user_id: str,
     org_id: str,
@@ -51,7 +55,7 @@ def create_access_token(
         "jti": str(uuid.uuid4()),  # JWT ID – каждый токен уникален
     }
 
-    token = jwt.encode(payload, _load_private_key(), algorithm="RS256")
+    token = jwt.encode(payload, _load_private_key(), algorithm="RS256", headers={"kid": JWT_KID})
     return token, int(exp.timestamp())
 
 
@@ -100,6 +104,7 @@ def get_jwks() -> dict:
                 "kty": "RSA",
                 "use": "sig",   # ключ используется для подписи (не шифрования)
                 "alg": "RS256",
+                "kid": JWT_KID,  # обязателен для PyJWT 2.8+: get_signing_keys() фильтрует по kid
                 "n": _int_to_base64url(pub_numbers.n),  # модуль
                 "e": _int_to_base64url(pub_numbers.e),  # публичная экспонента (обычно 65537)
             }
