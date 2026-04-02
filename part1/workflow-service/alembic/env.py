@@ -1,4 +1,3 @@
-from __future__ import annotations
 import asyncio
 from logging.config import fileConfig
 
@@ -15,8 +14,12 @@ if config.config_file_name is not None:
 # Import models so Alembic detects them
 from app.database import Base  # noqa: E402
 from app.models import approval, audit  # noqa: E402, F401
+from app.config import get_settings  # noqa: E402
 
 target_metadata = Base.metadata
+
+# Override URL from env vars so docker-compose credentials are used
+config.set_main_option("sqlalchemy.url", get_settings().DATABASE_URL)
 
 
 def run_migrations_offline() -> None:
