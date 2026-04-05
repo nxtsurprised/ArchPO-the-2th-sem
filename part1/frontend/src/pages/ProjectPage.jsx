@@ -29,9 +29,9 @@ const PRIORITY_LABELS = {
 
 const DOC_TYPE_LABELS = {
   tz: 'Техническое задание',
-  tp: 'Технический проект',
-  rp: 'Рабочий проект',
-  other: 'Другой',
+  chtz: 'Частное техническое задание',
+  pmi: 'Программа и методика испытаний',
+  nmck: 'НМЦК',
 };
 
 export default function ProjectPage() {
@@ -371,6 +371,8 @@ function AddFunctionModal({ projectId, subsystems, onClose, onSuccess }) {
         project_id: projectId,
         ...form,
         subsystem_id: form.subsystem_id || undefined,
+        category: form.category || undefined,
+        priority: form.priority || undefined,
       });
       onSuccess();
     } catch (err) {
@@ -548,9 +550,9 @@ function DocumentsTab({ projectId, canManage }) {
         >
           <option value="">Все типы</option>
           <option value="tz">Техническое задание</option>
-          <option value="tp">Технический проект</option>
-          <option value="rp">Рабочий проект</option>
-          <option value="other">Другой</option>
+          <option value="chtz">Частное техническое задание</option>
+          <option value="pmi">Программа и методика испытаний</option>
+          <option value="nmck">НМЦК</option>
         </select>
       </div>
 
@@ -690,9 +692,9 @@ function CreateDocumentModal({ projectId, templates, onClose, onSuccess }) {
               <select className="form-select" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
                 <option value="">Не указан</option>
                 <option value="tz">Техническое задание</option>
-                <option value="tp">Технический проект</option>
-                <option value="rp">Рабочий проект</option>
-                <option value="other">Другой</option>
+                <option value="chtz">Частное техническое задание</option>
+                <option value="pmi">Программа и методика испытаний</option>
+                <option value="nmck">НМЦК</option>
               </select>
             </div>
             {templates.length > 0 && (

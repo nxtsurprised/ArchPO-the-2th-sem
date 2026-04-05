@@ -7,7 +7,7 @@ class DocumentCreate(BaseModel):
     project_id: str
     template_id: str | None = None
     name: str
-    type: Literal["tz", "tp", "rp", "other"] | None = None
+    type: Literal["tz", "chtz", "pmi", "nmck"] | None = None
     function_ids: list[str] = []
     data: dict[str, Any] = {}
 
@@ -21,9 +21,9 @@ class DocumentUpdate(BaseModel):
 class DocumentResponse(BaseModel):
     id: str
     project_id: str
-    template_id: str
+    template_id: str | None
     name: str
-    type: str
+    type: str | None
     status: str
     function_ids: list[str]
     data: dict[str, Any]
