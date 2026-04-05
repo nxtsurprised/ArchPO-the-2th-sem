@@ -1,0 +1,227 @@
+version: "3.9"
+
+# PMI Agent Service — мультиагентная система автоматизированного тестирования
+# Стек: Ollama (LLM), ChromaDB (RAG), Playwright (браузер), Prometheus+Grafana+Loki (observability)
+
+services:
+
+  # ─── LLM ──────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=1
+    # Раскомментировать при наличии GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ─── Загрузка модели при старте ───────────────────────────────────────────
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        ollama pull mistral:7b-instruct &&
+        echo 'Model loaded successfully'
+      "
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"
+
+  # ─── Векторная БД (RAG) ───────────────────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:0.5.0
+    container_name: chromadb
+    restart: unless-stopped
+    ports:
+      - "8005:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_AUTH_CREDENTIALS_PROVIDER=chromadb.auth.token.TokenConfigServerAuthCredentialsProvider
+      - CHROMA_SERVER_AUTH_CREDENTIALS=${CHROMA_TOKEN:-pmi-chroma-token}
+      - CHROMA_SERVER_AUTH_PROVIDER=chromadb.auth.token.TokenAuthServerProvider
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ─── Браузер для Playwright (изолированный) ───────────────────────────────
+  playwright:
+    image: mcr.microsoft.com/playwright/python:v1.41.0-jammy
+    container_name: playwright
+    restart: unless-stopped
+    # Запускаем Chromium с открытым CDP-портом для удалённого подключения
+    command: >
+      sh -c "
+        chromium-browser
+          --remote-debugging-port=9222
+          --remote-debugging-address=0.0.0.0
+          --no-sandbox
+          --disable-setuid-sandbox
+          --disable-dev-shm-usage
+          --disable-gpu
+          --headless=new
+          --window-size=1920,1080
+          about:blank
+      "
+    ports:
+      - "9222:9222"
+    shm_size: "1gb"
+    security_opt:
+      - seccomp:unconfined   # Упрощение для dev; в prod — gVisor runtime
+    # В production заменить на gVisor:
+    # runtime: runsc
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9222/json/version"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 15s
+
+  # ─── PMI Agent (основное приложение) ─────────────────────────────────────
+  pmi-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pmi-agent
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+      playwright:
+        condition: service_healthy
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-mistral:7b-instruct}
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - CHROMA_TOKEN=${CHROMA_TOKEN:-pmi-chroma-token}
+      - PLAYWRIGHT_CDP_URL=http://playwright:9222
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8001}
+      - CATALOG_SERVICE_URL=${CATALOG_SERVICE_URL:-http://catalog-service:8002}
+      - GENERATION_SERVICE_URL=${GENERATION_SERVICE_URL:-http://generation-service:8003}
+      - WORKFLOW_SERVICE_URL=${WORKFLOW_SERVICE_URL:-http://workflow-service:8004}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - ./knowledge:/app/knowledge:ro
+      - pmi_outputs:/app/outputs
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # ─── Prometheus ───────────────────────────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    container_name: prometheus
+    restart: unless-stopped
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ─── Grafana ──────────────────────────────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.3
+    container_name: grafana
+    restart: unless-stopped
+    ports:
+      - "3001:3000"
+    depends_on:
+      - prometheus
+      - loki
+    volumes:
+      - grafana_data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=${GRAFANA_USER:-admin}
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+      - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_SERVER_ROOT_URL=http://localhost:3001
+
+  # ─── Loki (агрегация логов) ───────────────────────────────────────────────
+  loki:
+    image: grafana/loki:2.9.5
+    container_name: loki
+    restart: unless-stopped
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki-config.yml:/etc/loki/config.yml:ro
+      - loki_data:/loki
+    command: -config.file=/etc/loki/config.yml
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:3100/ready"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+
+  # ─── Promtail (сборщик логов) ─────────────────────────────────────────────
+  promtail:
+    image: grafana/promtail:2.9.5
+    container_name: promtail
+    restart: unless-stopped
+    depends_on:
+      - loki
+    volumes:
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/lib/docker/containers:/var/lib/docker/containers:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+
+volumes:
+  ollama_data:
+  chromadb_data:
+  prometheus_data:
+  grafana_data:
+  loki_data:
+  pmi_outputs:
+
+networks:
+  default:
+    name: pmi-agent-network

@@ -74,6 +74,8 @@ export default function FunctionDetailPage() {
       const res = await catalogApi.updateFunction(funcId, {
         ...form,
         subsystem_id: form.subsystem_id || undefined,
+        category: form.category || undefined,
+        priority: form.priority || undefined,
       });
       setFn(res.data);
       setEditing(false);
@@ -123,6 +125,11 @@ export default function FunctionDetailPage() {
           <p className="page-subtitle" style={{ fontFamily: 'monospace' }}>{fn.code}</p>
         </div>
         <div className="actions-row">
+          {!editing && (
+            <button className="btn btn-secondary" onClick={() => navigate(`/projects/${projectId}?tab=functions`)}>
+              ← Назад к функциям
+            </button>
+          )}
           {canEdit && !editing && (
             <button className="btn btn-primary" onClick={() => setEditing(true)}>
               Редактировать

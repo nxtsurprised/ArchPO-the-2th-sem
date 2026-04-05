@@ -1,0 +1,31 @@
+# Web framework
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+pydantic==2.5.3
+python-dotenv==1.0.1
+httpx==0.26.0
+
+# LangGraph / LangChain
+langgraph==0.1.6
+langchain==0.1.16
+langchain-core==0.1.46
+langchain-community==0.0.34
+langchain-ollama==0.1.1
+
+# Vector store (RAG)
+chromadb==0.5.0
+sentence-transformers==2.6.1
+
+# Browser automation (client only — браузер в отдельном контейнере)
+playwright==1.41.2
+
+# Observability
+prometheus-client==0.20.0
+structlog==24.1.0
+
+# Document generation (для записи PMI в .docx)
+python-docx==1.1.2
+
+# Утилиты
+tenacity==8.2.3
+python-multipart==0.0.9
