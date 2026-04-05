@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import Any, Literal
+from typing import Any
 from pydantic import Field
 import uuid
 from beanie import Document as BeanieDocument
@@ -11,7 +11,7 @@ class Document(BeanieDocument):
     project_id: str
     template_id: str | None = None
     name: str
-    type: Literal["tz", "chtz", "pmi", "nmck"] | None = None
+    type: str | None = None
     status: Literal["draft", "pending", "approved", "revision", "rejected"] = "draft"
     locked: bool = False  # set by Kafka consumer on workflow events
 
