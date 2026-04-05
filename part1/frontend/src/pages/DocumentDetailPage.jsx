@@ -12,9 +12,9 @@ const EDITABLE_STATUSES = ['draft', 'revision'];
 
 const DOC_TYPE_LABELS = {
   tz: 'Техническое задание',
-  tp: 'Технический проект',
-  rp: 'Рабочий проект',
-  other: 'Другой',
+  chtz: 'Частное техническое задание',
+  pmi: 'Программа и методика испытаний',
+  nmck: 'НМЦК',
 };
 
 export default function DocumentDetailPage() {
@@ -114,12 +114,35 @@ export default function DocumentDetailPage() {
     setGenerateError('');
     setDownloadUrl(null);
     try {
-      await generationApi.generateDocument(docId);
-      // Poll or just fetch download URL
-      const urlRes = await generationApi.getDownloadUrl(docId);
-      setDownloadUrl(urlRes.data.url);
+      // 1. Запускаем job
+      const jobRes = await generationApi.createJob(docId, 'docx');
+      const jobId = jobRes.data.job_id;
+
+      // 2. Ждём завершения (polling до 60 секунд)
+      let job = { status: jobRes.data.status };
+      for (let i = 0; i < 60 && !['completed', 'failed'].includes(job.status); i++) {
+        await new Promise((r) => setTimeout(r, 1000));
+        const statusRes = await generationApi.getJob(jobId);
+        job = statusRes.data;
+      }
+
+      if (job.status !== 'completed') {
+        setGenerateError(job.error || 'Генерация не завершилась в отведённое время');
+        return;
+      }
+
+      // 3. Скачиваем файл
+      const blobRes = await generationApi.downloadJob(jobId);
+      const blob = new Blob([blobRes.data]);
+      const url = URL.createObjectURL(blob);
+      setDownloadUrl(url);
     } catch (err) {
-      setGenerateError(err?.response?.data?.detail || 'Ошибка генерации документа');
+      const detail = err?.response?.data?.detail;
+      setGenerateError(
+        typeof detail === 'string' ? detail :
+        Array.isArray(detail) ? detail.map((d) => d.msg || JSON.stringify(d)).join('; ') :
+        'Ошибка генерации документа'
+      );
     } finally {
       setGenerating(false);
     }
@@ -202,7 +225,7 @@ export default function DocumentDetailPage() {
       {downloadUrl && (
         <div style={{ background: 'var(--color-primary-light)', border: '1px solid #bfdbfe', borderRadius: 6, padding: '10px 14px', fontSize: 13, marginBottom: 16 }}>
           Файл готов:{' '}
-          <a href={downloadUrl} target="_blank" rel="noreferrer" style={{ fontWeight: 600 }}>
+          <a href={downloadUrl} download={`${doc.name || 'document'}.docx`} style={{ fontWeight: 600 }}>
             Скачать документ
           </a>
         </div>
