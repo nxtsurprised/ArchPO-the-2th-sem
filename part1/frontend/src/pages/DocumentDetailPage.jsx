@@ -23,6 +23,7 @@ export default function DocumentDetailPage() {
   const navigate = useNavigate();
 
   const [doc, setDoc] = useState(null);
+  const [template, setTemplate] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -53,6 +54,14 @@ export default function DocumentDetailPage() {
       const res = await catalogApi.getDocument(docId);
       setDoc(res.data);
       setSections(res.data.data?.sections || {});
+      if (res.data.template_id) {
+        try {
+          const tplRes = await catalogApi.getTemplate(res.data.template_id);
+          setTemplate(tplRes.data);
+        } catch {
+          // шаблон недоступен — продолжаем без него
+        }
+      }
     } catch (err) {
       setError(err);
     } finally {
@@ -235,48 +244,48 @@ export default function DocumentDetailPage() {
       )}
 
       {/* Sections editor */}
-      <div className="card">
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h2 className="section-title" style={{ margin: 0 }}>Содержание документа</h2>
-          {!isEditable && (
-            <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
-              Документ доступен только для просмотра
-            </span>
-          )}
-        </div>
-
-        {Object.keys(sections).length === 0 ? (
-          <div className="empty-state" style={{ padding: '32px 0' }}>
-            <div className="empty-state-icon">&#128196;</div>
-            <div className="empty-state-text">Разделы не заполнены</div>
-            {isEditable && canEdit && !editing && (
-              <button className="btn btn-primary btn-sm" style={{ marginTop: 12 }} onClick={() => setEditing(true)}>
-                Добавить разделы
-              </button>
+      {template ? (
+        <TemplateSectionEditor
+          template={template}
+          sections={sections}
+          editing={editing && isEditable && canEdit}
+          isEditable={isEditable}
+          canEdit={canEdit}
+          onStartEdit={() => setEditing(true)}
+          onChange={(secNum, newData) =>
+            setSections((prev) => ({ ...prev, [secNum]: newData }))
+          }
+        />
+      ) : (
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+            <h2 className="section-title" style={{ margin: 0 }}>Содержание документа</h2>
+            {!isEditable && (
+              <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+                Документ доступен только для просмотра
+              </span>
             )}
           </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
-            {Object.entries(sections).map(([sectionKey, sectionValue]) => (
-              <SectionField
-                key={sectionKey}
-                sectionKey={sectionKey}
-                value={sectionValue}
-                editing={editing && isEditable && canEdit}
-                onChange={(newVal) => setSections((prev) => ({ ...prev, [sectionKey]: newVal }))}
-              />
-            ))}
-          </div>
-        )}
-
-        {/* Add section button when editing */}
-        {editing && isEditable && (
-          <AddSectionButton
-            existingKeys={Object.keys(sections)}
-            onAdd={(key) => setSections((prev) => ({ ...prev, [key]: '' }))}
-          />
-        )}
-      </div>
+          {Object.keys(sections).length === 0 ? (
+            <div className="empty-state" style={{ padding: '32px 0' }}>
+              <div className="empty-state-icon">&#128196;</div>
+              <div className="empty-state-text">Шаблон не выбран — разделы недоступны</div>
+            </div>
+          ) : (
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 20 }}>
+              {Object.entries(sections).map(([sectionKey, sectionValue]) => (
+                <SectionField
+                  key={sectionKey}
+                  sectionKey={sectionKey}
+                  value={sectionValue}
+                  editing={editing && isEditable && canEdit}
+                  onChange={(newVal) => setSections((prev) => ({ ...prev, [sectionKey]: newVal }))}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      )}
 
       {/* Submit for approval modal */}
       {showSubmitModal && (
@@ -310,6 +319,111 @@ export default function DocumentDetailPage() {
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+// ─── Template-aware section editor ───────────────────────────────────────────
+
+function TemplateSectionEditor({ template, sections, editing, isEditable, canEdit, onStartEdit, onChange }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <h2 className="section-title" style={{ margin: 0 }}>Содержание документа</h2>
+        {!isEditable && (
+          <span style={{ fontSize: 12, color: 'var(--color-text-secondary)' }}>
+            Документ доступен только для просмотра
+          </span>
+        )}
+      </div>
+      {template.sections.map((section) => (
+        <TemplateSectionBlock
+          key={section.number}
+          section={section}
+          data={sections[section.number] || {}}
+          editing={editing}
+          onChange={(newData) => onChange(section.number, newData)}
+        />
+      ))}
+    </div>
+  );
+}
+
+function TemplateSectionBlock({ section, data, editing, onChange }) {
+  const source = section.source || 'manual';
+
+  return (
+    <div className="card">
+      <h3 style={{ fontWeight: 600, fontSize: 15, marginBottom: 14, color: 'var(--color-text)' }}>
+        {section.number}. {section.title}
+      </h3>
+
+      {source === 'manual' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
+          {(section.fields || []).map((field) => (
+            <TemplateFieldEditor
+              key={field.key}
+              field={field}
+              value={data[field.key] ?? ''}
+              editing={editing}
+              onChange={(val) => onChange({ ...data, [field.key]: val })}
+            />
+          ))}
+        </div>
+      )}
+
+      {source === 'functions' && (
+        <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', padding: '8px 0' }}>
+          Раздел формируется автоматически из справочника функций проекта
+        </div>
+      )}
+
+      {source === 'subsystems' && (
+        <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', padding: '8px 0' }}>
+          Раздел формируется автоматически из подсистем проекта
+        </div>
+      )}
+
+      {source === 'static' && (
+        <div style={{ fontSize: 14, whiteSpace: 'pre-wrap', color: 'var(--color-text)' }}>
+          {section.static_content}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TemplateFieldEditor({ field, value, editing, onChange }) {
+  const isRequired = field.required;
+  const isEmpty = !value || (typeof value === 'string' && !value.trim());
+
+  return (
+    <div className="form-group">
+      <label className="form-label">
+        {field.label}
+        {isRequired && <span style={{ color: 'var(--color-danger)', marginLeft: 4 }}>*</span>}
+      </label>
+      {editing ? (
+        <textarea
+          className="form-input form-textarea"
+          rows={field.type === 'textarea' || field.type === 'list' ? 4 : 2}
+          value={typeof value === 'object' ? JSON.stringify(value, null, 2) : (value || '')}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={field.type === 'list' ? 'Каждый пункт с новой строки' : ''}
+        />
+      ) : (
+        <div style={{
+          fontSize: 14,
+          whiteSpace: 'pre-wrap',
+          color: isEmpty ? 'var(--color-text-secondary)' : 'var(--color-text)',
+          minHeight: 20,
+        }}>
+          {isEmpty
+            ? (isRequired ? '⚠ Обязательное поле не заполнено' : 'Не заполнено')
+            : (typeof value === 'object' ? JSON.stringify(value, null, 2) : value)
+          }
+        </div>
+      )}
     </div>
   );
 }

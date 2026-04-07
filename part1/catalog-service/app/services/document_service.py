@@ -36,6 +36,19 @@ async def get_document(doc_id: str) -> Document | None:
 
 async def create_document(data: DocumentCreate, created_by: str) -> Document:
     now = _now()
+
+    # Предзаполняем секции из шаблона — только manual-поля, пустые значения
+    initial_sections: dict[str, Any] = {}
+    if data.template_id:
+        tmpl = await Template.get(data.template_id)
+        if tmpl:
+            for section in tmpl.sections:
+                if section.get("source") == "manual" and section.get("fields"):
+                    sec_num = section["number"]
+                    initial_sections[sec_num] = {
+                        f["key"]: "" for f in section["fields"]
+                    }
+
     doc = Document(
         project_id=data.project_id,
         template_id=data.template_id,
@@ -43,7 +56,7 @@ async def create_document(data: DocumentCreate, created_by: str) -> Document:
         type=data.type,
         status="draft",
         function_ids=data.function_ids,
-        data=data.data if data.data else {"sections": {}},
+        data={"sections": initial_sections},
         version=1,
         created_by=created_by,
         created_at=now,

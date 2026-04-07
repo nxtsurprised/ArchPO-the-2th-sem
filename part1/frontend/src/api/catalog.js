@@ -64,4 +64,8 @@ export const catalogApi = {
   getTemplates(params = {}) {
     return client.get('/api/catalog/templates', { params });
   },
+
+  getTemplate(id) {
+    return client.get(`/api/catalog/templates/${id}`);
+  },
 };

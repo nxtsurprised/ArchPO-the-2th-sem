@@ -34,6 +34,13 @@ const DOC_TYPE_LABELS = {
   nmck: 'НМЦК',
 };
 
+const APPROVAL_TYPE_LABELS = {
+  tz_final: 'Финальное согласование ТЗ',
+  nmck_final: 'Финальное согласование НМЦК',
+  review: 'Рецензирование',
+  standard: 'Стандартное согласование',
+};
+
 export default function ProjectPage() {
   const { id: projectId } = useParams();
   const { getRoleForProject, user } = useAuth();
@@ -647,6 +654,14 @@ function CreateDocumentModal({ projectId, templates, onClose, onSuccess }) {
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
 
+  const filteredTemplates = form.type
+    ? templates.filter((t) => t.type === form.type)
+    : templates;
+
+  const handleTypeChange = (type) => {
+    setForm({ ...form, type, template_id: '' });
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) { setError('Введите наименование документа'); return; }
@@ -689,7 +704,7 @@ function CreateDocumentModal({ projectId, templates, onClose, onSuccess }) {
             </div>
             <div className="form-group">
               <label className="form-label">Тип</label>
-              <select className="form-select" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+              <select className="form-select" value={form.type} onChange={(e) => handleTypeChange(e.target.value)}>
                 <option value="">Не указан</option>
                 <option value="tz">Техническое задание</option>
                 <option value="chtz">Частное техническое задание</option>
@@ -697,15 +712,20 @@ function CreateDocumentModal({ projectId, templates, onClose, onSuccess }) {
                 <option value="nmck">НМЦК</option>
               </select>
             </div>
-            {templates.length > 0 && (
+            {filteredTemplates.length > 0 && (
               <div className="form-group">
                 <label className="form-label">Шаблон</label>
                 <select className="form-select" value={form.template_id} onChange={(e) => setForm({ ...form, template_id: e.target.value })}>
                   <option value="">Без шаблона</option>
-                  {templates.map((t) => (
-                    <option key={t.id} value={t.id}>{t.name} ({t.type})</option>
+                  {filteredTemplates.map((t) => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
                   ))}
                 </select>
+              </div>
+            )}
+            {form.type && filteredTemplates.length === 0 && (
+              <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+                Шаблоны для этого типа документа не найдены
               </div>
             )}
             {error && <div style={{ color: 'var(--color-danger)', fontSize: 13 }}>{error}</div>}
@@ -795,7 +815,7 @@ function ApprovalsTab({ projectId }) {
                   <td style={{ fontSize: 13, fontFamily: 'monospace' }}>
                     {a.document_id?.slice(0, 8)}...
                   </td>
-                  <td style={{ fontSize: 13 }}>{a.type || '—'}</td>
+                  <td style={{ fontSize: 13 }}>{APPROVAL_TYPE_LABELS[a.type] || a.type || '—'}</td>
                   <td><StatusBadge status={a.status} /></td>
                   <td style={{ fontSize: 13 }}>{a.current_round ?? '—'}</td>
                   <td style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
@@ -874,7 +894,7 @@ function MyTasksTab({ projectId }) {
                   <td style={{ fontSize: 13, fontFamily: 'monospace' }}>
                     {a.document_id?.slice(0, 8)}...
                   </td>
-                  <td style={{ fontSize: 13 }}>{a.type || '—'}</td>
+                  <td style={{ fontSize: 13 }}>{APPROVAL_TYPE_LABELS[a.type] || a.type || '—'}</td>
                   <td><StatusBadge status={a.status} /></td>
                   <td style={{ fontSize: 13 }}>{a.current_round ?? '—'}</td>
                   <td>
