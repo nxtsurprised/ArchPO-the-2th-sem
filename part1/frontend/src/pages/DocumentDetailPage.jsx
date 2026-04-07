@@ -91,11 +91,13 @@ export default function DocumentDetailPage() {
   const handleSubmitForApproval = async () => {
     setSubmitting(true);
     setSubmitError('');
+    const approvalTypeMap = { tz: 'tz_final', chtz: 'tz_final', pmi: 'tz_final', nmck: 'nmck_final' };
+    const approvalType = approvalTypeMap[doc.type] || 'tz_final';
     try {
-      const approval = await workflowApi.createApproval({
+      await workflowApi.createApproval({
         document_id: docId,
         project_id: projectId,
-        type: doc.type || 'standard',
+        type: approvalType,
       });
       setShowSubmitModal(false);
       setSubmitSuccess(true);
@@ -103,7 +105,8 @@ export default function DocumentDetailPage() {
       await load();
       setTimeout(() => setSubmitSuccess(false), 4000);
     } catch (err) {
-      setSubmitError(err?.response?.data?.detail || 'Ошибка при отправке на согласование');
+      const detail = err?.response?.data?.detail;
+      setSubmitError(typeof detail === 'string' ? detail : 'Ошибка при отправке на согласование');
     } finally {
       setSubmitting(false);
     }

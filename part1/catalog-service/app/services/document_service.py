@@ -73,6 +73,8 @@ async def validate_document(doc: Document) -> dict[str, Any]:
     errors: list[str] = []
     warnings: list[str] = []
 
+    if not doc.template_id:
+        return {"is_valid": False, "errors": ["template not assigned"], "warnings": []}
     tmpl = await Template.get(doc.template_id)
     if not tmpl:
         return {"is_valid": False, "errors": ["template not found"], "warnings": []}
@@ -96,6 +98,8 @@ async def validate_document(doc: Document) -> dict[str, Any]:
 
 
 async def get_render_bundle(doc: Document) -> dict[str, Any]:
+    if not doc.template_id:
+        return {}
     tmpl = await Template.get(doc.template_id)
     if not tmpl:
         return {}
