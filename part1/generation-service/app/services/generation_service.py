@@ -128,9 +128,9 @@ async def _render_docx(job: Job, bundle: dict, minio) -> bytes:
     template = bundle.get("template", {})
     sections = template.get("sections", [])
 
-    # Пробуем получить .dotx шаблон
-    dotx_key = bundle.get("dotx_key")
-    dotx_bytes = await _fetch_dotx(minio, dotx_key) if dotx_key else None
+    # Пробуем получить .dotx шаблон; если не задан — используем дефолтный ГОСТ 2.105
+    dotx_key = bundle.get("dotx_key") or "gost-2105-template.dotx"
+    dotx_bytes = await _fetch_dotx(minio, dotx_key)
 
     all_elements = []
     total_sections = len(sections)
