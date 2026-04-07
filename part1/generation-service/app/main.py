@@ -23,7 +23,7 @@ async def lifespan(app: FastAPI):
 
     # Инициализируем MinIO (best-effort: сервис stateless, MinIO может быть недоступен)
     try:
-        from app.storage.minio_client import init_minio, get_minio_client
+        from app.storage.minio_client import init_minio
         init_minio(
             endpoint=settings.MINIO_ENDPOINT,
             access_key=settings.MINIO_ACCESS_KEY,
@@ -34,24 +34,6 @@ async def lifespan(app: FastAPI):
             presigned_expiry=settings.PRESIGNED_URL_EXPIRY,
         )
         logger.info("minio_initialized", endpoint=settings.MINIO_ENDPOINT)
-
-        # Загружаем дефолтный .dotx шаблон ГОСТ 2.105 в MinIO (идемпотентно)
-        import io
-        from pathlib import Path
-        dotx_path = Path(__file__).parent.parent / "assets" / "gost-2105-template.dotx"
-        if dotx_path.exists():
-            minio = get_minio_client()
-            dotx_bytes = dotx_path.read_bytes()
-            minio._client.put_object(
-                minio.templates_bucket,
-                "gost-2105-template.dotx",
-                io.BytesIO(dotx_bytes),
-                length=len(dotx_bytes),
-                content_type="application/vnd.openxmlformats-officedocument.wordprocessingml.template",
-            )
-            logger.info("dotx_template_uploaded", key="gost-2105-template.dotx")
-        else:
-            logger.warning("dotx_template_not_found", path=str(dotx_path))
     except Exception as exc:
         logger.warning("minio_init_failed", error=str(exc))
 

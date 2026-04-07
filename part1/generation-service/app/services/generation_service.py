@@ -2,6 +2,7 @@ from __future__ import annotations
 import asyncio
 import time
 from datetime import datetime, timezone
+from pathlib import Path
 
 import httpx
 import structlog
@@ -17,6 +18,9 @@ logger = structlog.get_logger()
 
 _validator = BundleValidator()
 
+# Дефолтный шаблон ГОСТ 2.105, поставляется в образе
+_DEFAULT_DOTX = Path(__file__).parent.parent.parent / "assets" / "gost-2105-template.dotx"
+
 
 async def _fetch_render_bundle(document_id: str) -> dict:
     """Запрашивает render-bundle у Catalog Service."""
@@ -30,12 +34,31 @@ async def _fetch_render_bundle(document_id: str) -> dict:
         return resp.json()
 
 
-async def _fetch_dotx(minio_client, dotx_key: str) -> bytes | None:
-    """Скачивает .dotx шаблон из MinIO."""
+async def _load_dotx(minio_client, dotx_key: str | None) -> bytes | None:
+    """
+    Загружает .dotx шаблон.
+
+    Порядок приоритетов:
+    1. Пользовательский ключ из MinIO (если задан в шаблоне).
+    2. Дефолтный ГОСТ 2.105 из assets/ (поставляется в образе).
+    """
+    # Пользовательский шаблон из MinIO
+    if dotx_key:
+        try:
+            data = await minio_client.get_object_bytes(minio_client.templates_bucket, dotx_key)
+            if data:
+                logger.info("dotx_loaded_from_minio", key=dotx_key)
+                return data
+        except Exception as exc:
+            logger.warning("dotx_minio_fetch_failed", key=dotx_key, error=str(exc))
+
+    # Дефолтный шаблон из файловой системы контейнера
     try:
-        return await minio_client.get_object_bytes(minio_client.templates_bucket, dotx_key)
+        data = _DEFAULT_DOTX.read_bytes()
+        logger.info("dotx_loaded_from_assets", path=str(_DEFAULT_DOTX))
+        return data
     except Exception as exc:
-        logger.warning("dotx_fetch_failed", key=dotx_key, error=str(exc))
+        logger.warning("dotx_assets_load_failed", path=str(_DEFAULT_DOTX), error=str(exc))
         return None
 
 
@@ -128,9 +151,8 @@ async def _render_docx(job: Job, bundle: dict, minio) -> bytes:
     template = bundle.get("template", {})
     sections = template.get("sections", [])
 
-    # Пробуем получить .dotx шаблон; если не задан — используем дефолтный ГОСТ 2.105
-    dotx_key = bundle.get("dotx_key") or "gost-2105-template.dotx"
-    dotx_bytes = await _fetch_dotx(minio, dotx_key)
+    dotx_key = bundle.get("dotx_key") or None
+    dotx_bytes = await _load_dotx(minio, dotx_key)
 
     all_elements = []
     total_sections = len(sections)
