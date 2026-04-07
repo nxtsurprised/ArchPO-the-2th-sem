@@ -11,12 +11,14 @@ class IRHeading:
 @dataclass
 class IRParagraph:
     text: str
+    style: str | None = None  # ключ из STYLE_MAP; None → body_text
 
 
 @dataclass
 class IRList:
     items: list[str]
     ordered: bool = False
+    style: str | None = None  # ключ из STYLE_MAP; None → list_bullet / list_number
 
 
 @dataclass
@@ -56,7 +58,7 @@ def render_manual(section: dict, data: dict) -> list[IRElement]:
                 items = [str(i) for i in value]
             else:
                 items = [line.strip() for line in str(value).splitlines() if line.strip()]
-            elements.append(IRParagraph(text=f"{label}:"))
+            elements.append(IRParagraph(text=f"{label}:", style="list_intro"))
             elements.append(IRList(items=items, ordered=False))
         else:
             elements.append(IRParagraph(text=f"{label}: {value}"))

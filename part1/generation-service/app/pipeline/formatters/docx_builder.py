@@ -147,10 +147,10 @@ class DocxBuilder:
             match el:
                 case IRHeading(text=text, level=level):
                     self._add_heading(text, level)
-                case IRParagraph(text=text):
-                    self._add_paragraph(text)
-                case IRList(items=items, ordered=ordered):
-                    self._add_list(items, ordered)
+                case IRParagraph(text=text, style=style):
+                    self._add_paragraph(text, style)
+                case IRList(items=items, ordered=ordered, style=style):
+                    self._add_list(items, ordered, style)
                 case IRTable(headers=headers, rows=rows, caption=caption):
                     self._add_table(headers, rows, caption)
 
@@ -165,14 +165,17 @@ class DocxBuilder:
         if not _try_apply_style(self._doc, p, style_name):
             _apply_heading_fallback(p, level)
 
-    def _add_paragraph(self, text: str) -> None:
+    def _add_paragraph(self, text: str, style: str | None = None) -> None:
         p = self._doc.add_paragraph()
         p.add_run(text)
-        if not _try_apply_style(self._doc, p, body_style_name()):
+        resolved = STYLE_MAP.get(style, body_style_name()) if style else body_style_name()
+        if not _try_apply_style(self._doc, p, resolved):
             _apply_body_fallback(p)
 
-    def _add_list(self, items: list[str], ordered: bool) -> None:
-        style_name = list_style_name(ordered)
+    def _add_list(self, items: list[str], ordered: bool, style: str | None = None) -> None:
+        style_name = STYLE_MAP.get(style) if style else list_style_name(ordered)
+        if not style_name:
+            style_name = list_style_name(ordered)
         bullet_char = "\u2013 "  # дефис «–» для маркированных
         for i, item in enumerate(items, start=1):
             p = self._doc.add_paragraph()
