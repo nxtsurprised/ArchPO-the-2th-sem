@@ -1,5 +1,9 @@
 """ChromaDB клиент — singleton для всего приложения."""
 
+from __future__ import annotations
+
+from typing import Any, Optional
+
 import structlog
 import chromadb
 from chromadb.config import Settings
@@ -8,14 +12,14 @@ from config import settings
 
 logger = structlog.get_logger(__name__)
 
-_client: chromadb.HttpClient | None = None
+_client: Optional[Any] = None
 
 # Имена коллекций
 COLLECTION_KNOWLEDGE = "pmi_knowledge"   # knowledge base (.md файлы)
 COLLECTION_RESULTS   = "pmi_results"     # история результатов (few-shot)
 
 
-def get_chroma_client() -> chromadb.HttpClient:
+def get_chroma_client() -> Any:
     """Возвращает singleton-клиент ChromaDB."""
     global _client
     if _client is None:

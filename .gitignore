@@ -1,0 +1,102 @@
+# ─── Секреты и окружение ──────────────────────────────────────────────────
+.env
+.env.local
+.env.*.local
+*.pem
+*.key
+jwt_private.pem
+jwt_public.pem
+
+# ─── Python ───────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+*.egg
+pip-wheel-metadata/
+.installed.cfg
+
+# Виртуальные окружения
+venv/
+.venv/
+env/
+.env/
+ENV/
+
+# pytest / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+nosetests.xml
+coverage.xml
+*.cover
+
+# mypy / ruff / pyright
+.mypy_cache/
+.ruff_cache/
+pyrightconfig.json
+
+# ─── Node / Frontend ──────────────────────────────────────────────────────
+node_modules/
+dist/
+.next/
+.nuxt/
+.cache/
+*.tsbuildinfo
+
+# ─── Docker ───────────────────────────────────────────────────────────────
+# Не игнорируем docker-compose.yml и Dockerfile — они нужны в репо
+
+# ─── Данные и артефакты (не коммитим) ────────────────────────────────────
+# Модели Ollama (гигабайты)
+part1/pmi-agent/ollama_data/
+ollama_data/
+
+# Выходные файлы ПМИ (генерируются при работе)
+part1/pmi-agent/outputs/
+
+# ChromaDB локальные данные
+part1/pmi-agent/chroma_data/
+chroma_data/
+
+# Скриншоты Playwright
+part1/pmi-agent/outputs/*.png
+part1/pmi-agent/outputs/*.docx
+
+# MinIO данные
+minio_data/
+
+# ─── Сгенерированные документы ────────────────────────────────────────────
+*.docx
+*.xlsx
+!part1/generation-service/assets/*.dotx
+
+# ─── IDE ──────────────────────────────────────────────────────────────────
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# ─── Логи ─────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ─── Alembic (версии миграций коммитим, данные — нет) ────────────────────
+# alembic/versions/ — НЕ игнорируем, они нужны
+
+# ─── Временные файлы ──────────────────────────────────────────────────────
+*.tmp
+*.bak
+*.orig
+.cache/
+tmp/
+temp/
