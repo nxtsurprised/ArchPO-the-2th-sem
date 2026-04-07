@@ -7,11 +7,12 @@ python-dotenv==1.0.1
 httpx==0.26.0
 
 # LangGraph / LangChain
-langgraph==0.1.6
-langchain==0.1.16
-langchain-core==0.1.46
-langchain-community==0.0.34
-langchain-ollama==0.1.1
+# langgraph 0.1.x требует langchain-core>=0.2.11,<0.3
+langgraph==0.1.19
+langchain==0.2.16
+langchain-core==0.2.38
+langchain-community==0.2.16
+langchain-ollama==0.1.3
 
 # Vector store (RAG)
 chromadb==0.5.0
