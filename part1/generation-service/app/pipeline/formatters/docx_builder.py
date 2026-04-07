@@ -1,5 +1,6 @@
 from __future__ import annotations
 import io
+import zipfile
 from typing import TYPE_CHECKING
 
 from docx import Document
@@ -18,6 +19,27 @@ from app.pipeline.formatters.gost_formatter import (
 
 if TYPE_CHECKING:
     pass
+
+
+_TEMPLATE_CT = b"application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml"
+_DOCUMENT_CT = b"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
+
+
+def _dotx_to_docx(dotx_bytes: bytes) -> bytes:
+    """
+    python-docx не умеет открывать .dotx напрямую — тип содержимого
+    в [Content_Types].xml отличается от обычного .docx.
+    Патчим его в памяти: template.main+xml → document.main+xml.
+    """
+    buf = io.BytesIO()
+    with zipfile.ZipFile(io.BytesIO(dotx_bytes), "r") as zin:
+        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
+            for item in zin.infolist():
+                data = zin.read(item.filename)
+                if item.filename == "[Content_Types].xml":
+                    data = data.replace(_TEMPLATE_CT, _DOCUMENT_CT)
+                zout.writestr(item, data)
+    return buf.getvalue()
 
 
 def _apply_page_settings(doc: Document) -> None:
@@ -111,7 +133,7 @@ class DocxBuilder:
 
     def __init__(self, dotx_bytes: bytes | None = None) -> None:
         if dotx_bytes:
-            self._doc = Document(io.BytesIO(dotx_bytes))
+            self._doc = Document(io.BytesIO(_dotx_to_docx(dotx_bytes)))
         else:
             self._doc = Document()
             _apply_page_settings(self._doc)
