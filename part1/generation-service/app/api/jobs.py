@@ -5,7 +5,6 @@ from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Depends, HTTPException, status
-from fastapi.responses import RedirectResponse
 from pydantic import BaseModel
 
 from app.api.deps import get_current_user
@@ -73,9 +72,11 @@ async def download_job(
     user=Depends(get_current_user),
 ):
     """
-    Редиректит на presigned MinIO URL.
+    Стримит файл напрямую через generation-service.
     Проверяет SHA-256 целостность файла.
     """
+    import io
+    from fastapi.responses import StreamingResponse
     from app.storage.minio_client import get_minio_client
 
     manager = get_job_manager()
@@ -94,7 +95,6 @@ async def download_job(
 
     minio = get_minio_client()
 
-    # Проверяем контрольную сумму
     file_bytes = await minio.get_object_bytes(minio.bucket, job.file_key)
     if file_bytes is None:
         raise HTTPException(
@@ -118,8 +118,20 @@ async def download_job(
     logger.info("generation_download", job_id=job_id, file_key=job.file_key)
     from app.services.audit_store import record_audit
     record_audit("generation.download", job_id=job_id, file_key=job.file_key)
-    presigned_url = await minio.presigned_get_url(job.file_key)
-    return RedirectResponse(url=presigned_url, status_code=status.HTTP_302_FOUND)
+
+    ext = job.file_key.rsplit(".", 1)[-1] if "." in job.file_key else "docx"
+    content_type = (
+        "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
+        if ext == "xlsx"
+        else "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+    )
+    filename = job.file_key.rsplit("/", 1)[-1]
+
+    return StreamingResponse(
+        io.BytesIO(file_bytes),
+        media_type=content_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 # ── GET /api/generation/documents/:document_id/files ─────────────────────────
