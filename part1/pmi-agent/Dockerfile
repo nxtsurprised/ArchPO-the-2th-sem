@@ -1,7 +1,6 @@
-FROM python:3.12-slim
+# Используем официальный образ Playwright — браузеры уже установлены
+FROM mcr.microsoft.com/playwright/python:v1.41.0-jammy
 
-# Playwright и браузеры устанавливаются только для подключения через CDP
-# Реальный браузер работает в отдельном контейнере playwright
 RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
@@ -11,12 +10,8 @@ WORKDIR /app
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Playwright Python client (без установки браузеров — браузер в отдельном контейнере)
-RUN pip install --no-cache-dir playwright==1.41.2
-
 COPY . .
 
-# Создаём директорию для выходных файлов ПМИ
 RUN mkdir -p /app/outputs
 
 EXPOSE 8006

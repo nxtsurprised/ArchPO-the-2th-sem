@@ -15,8 +15,7 @@ class Settings(BaseSettings):
     chroma_port: int = Field(default=8005)
     chroma_token: str = Field(default="pmi-chroma-token")
 
-    # Playwright (CDP)
-    playwright_cdp_url: str = Field(default="http://localhost:9222")
+    # Playwright (локальный Chromium внутри контейнера)
     playwright_timeout: int = Field(default=10000)  # мс
 
     # URL тестируемого фронтенда

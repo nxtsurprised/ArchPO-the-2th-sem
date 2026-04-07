@@ -39,17 +39,24 @@ class BrowserTool:
         self._page: Page | None = None
 
     async def start(self) -> None:
-        """Подключиться к CDP-брокеру (браузер в отдельном контейнере)."""
+        """Запустить Chromium внутри контейнера pmi-agent."""
         self._playwright = await async_playwright().start()
-        # Подключаемся к уже запущенному Chromium через CDP
-        cdp_ws = await self._get_cdp_ws_endpoint()
-        self._browser = await self._playwright.chromium.connect_over_cdp(cdp_ws)
+        self._browser = await self._playwright.chromium.launch(
+            headless=True,
+            args=[
+                "--no-sandbox",
+                "--disable-setuid-sandbox",
+                "--disable-dev-shm-usage",
+                "--disable-gpu",
+                "--window-size=1920,1080",
+            ],
+        )
         self._context = await self._browser.new_context(
             viewport={"width": 1920, "height": 1080},
             ignore_https_errors=True,
         )
         self._page = await self._context.new_page()
-        logger.info("browser_connected", cdp_url=settings.playwright_cdp_url)
+        logger.info("browser_started", headless=True)
 
     async def stop(self) -> None:
         """Закрыть контекст браузера."""
@@ -60,16 +67,6 @@ class BrowserTool:
         if self._playwright:
             await self._playwright.stop()
         logger.info("browser_disconnected")
-
-    async def _get_cdp_ws_endpoint(self) -> str:
-        """Получить WebSocket-эндпоинт CDP из JSON API."""
-        import httpx
-        resp = httpx.get(f"{settings.playwright_cdp_url}/json/version", timeout=10)
-        data = resp.json()
-        ws_url = data.get("webSocketDebuggerUrl", "")
-        if not ws_url:
-            raise RuntimeError(f"CDP WebSocket endpoint not found: {data}")
-        return ws_url
 
     async def execute_step(self, step: TestStep, base_url: str) -> StepResult:
         """Выполнить один шаг тест-плана и вернуть результат."""

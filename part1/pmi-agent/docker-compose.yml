@@ -1,7 +1,5 @@
-version: "3.9"
-
 # PMI Agent Service — мультиагентная система автоматизированного тестирования
-# Стек: Ollama (LLM), ChromaDB (RAG), Playwright (браузер), Prometheus+Grafana+Loki (observability)
+# Стек: Ollama (LLM), ChromaDB (RAG), Playwright (встроен в pmi-agent), Prometheus+Grafana+Loki (observability)
 
 services:
 
@@ -70,40 +68,9 @@ services:
       retries: 3
       start_period: 10s
 
-  # ─── Браузер для Playwright (изолированный) ───────────────────────────────
-  playwright:
-    image: mcr.microsoft.com/playwright/python:v1.41.0-jammy
-    container_name: playwright
-    restart: unless-stopped
-    # Запускаем Chromium с открытым CDP-портом для удалённого подключения
-    command: >
-      sh -c "
-        chromium-browser
-          --remote-debugging-port=9222
-          --remote-debugging-address=0.0.0.0
-          --no-sandbox
-          --disable-setuid-sandbox
-          --disable-dev-shm-usage
-          --disable-gpu
-          --headless=new
-          --window-size=1920,1080
-          about:blank
-      "
-    ports:
-      - "9222:9222"
-    shm_size: "1gb"
-    security_opt:
-      - seccomp:unconfined   # Упрощение для dev; в prod — gVisor runtime
-    # В production заменить на gVisor:
-    # runtime: runsc
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:9222/json/version"]
-      interval: 15s
-      timeout: 5s
-      retries: 5
-      start_period: 15s
-
   # ─── PMI Agent (основное приложение) ─────────────────────────────────────
+  # Браузер (Chromium) встроен в образ mcr.microsoft.com/playwright/python
+  # Изоляция обеспечивается контейнером Docker (+ seccomp/gVisor в prod)
   pmi-agent:
     build:
       context: .
@@ -117,15 +84,13 @@ services:
         condition: service_healthy
       chromadb:
         condition: service_healthy
-      playwright:
-        condition: service_healthy
+    shm_size: "1gb"
     environment:
       - OLLAMA_BASE_URL=http://ollama:11434
       - OLLAMA_MODEL=${OLLAMA_MODEL:-mistral:7b-instruct}
       - CHROMA_HOST=chromadb
       - CHROMA_PORT=8000
       - CHROMA_TOKEN=${CHROMA_TOKEN:-pmi-chroma-token}
-      - PLAYWRIGHT_CDP_URL=http://playwright:9222
       - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8001}
       - CATALOG_SERVICE_URL=${CATALOG_SERVICE_URL:-http://catalog-service:8002}
       - GENERATION_SERVICE_URL=${GENERATION_SERVICE_URL:-http://generation-service:8003}
