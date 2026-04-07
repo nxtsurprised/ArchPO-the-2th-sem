@@ -6,7 +6,6 @@ from typing import Any, Optional
 
 import structlog
 import chromadb
-from chromadb.config import Settings
 
 from config import settings
 
@@ -26,10 +25,7 @@ def get_chroma_client() -> Any:
         _client = chromadb.HttpClient(
             host=settings.chroma_host,
             port=settings.chroma_port,
-            settings=Settings(
-                chroma_client_auth_provider="chromadb.auth.token.TokenAuthClientProvider",
-                chroma_client_auth_credentials=settings.chroma_token,
-            ),
+            headers={"Authorization": f"Bearer {settings.chroma_token}"},
         )
         logger.info("chromadb_connected", host=settings.chroma_host, port=settings.chroma_port)
     return _client
