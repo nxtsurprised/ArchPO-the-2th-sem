@@ -22,15 +22,13 @@ if TYPE_CHECKING:
 
 def _apply_page_settings(doc: Document) -> None:
     """Устанавливает поля страницы A4 по ГОСТ 2.105-2019."""
-    from docx.oxml.ns import qn as _qn
-    from docx.oxml import OxmlElement as _OE
     sec = doc.sections[0]
-    sec.page_width  = PAGE_SETTINGS["width"]
-    sec.page_height = PAGE_SETTINGS["height"]
-    sec.left_margin   = PAGE_SETTINGS["left"]
-    sec.right_margin  = PAGE_SETTINGS["right"]
-    sec.top_margin    = PAGE_SETTINGS["top"]
-    sec.bottom_margin = PAGE_SETTINGS["bottom"]
+    sec.page_width    = Cm(21)    # A4 210 мм
+    sec.page_height   = Cm(29.7)  # A4 297 мм
+    sec.left_margin   = Cm(3.0)   # ГОСТ: 30 мм
+    sec.right_margin  = Cm(1.5)   # ГОСТ: 15 мм
+    sec.top_margin    = Cm(2.0)   # ГОСТ: 20 мм
+    sec.bottom_margin = Cm(2.0)   # ГОСТ: 20 мм
 
 
 def _add_page_number(doc: Document) -> None:
