@@ -109,11 +109,19 @@ async def planner_node(state: PMIAgentState) -> dict:
             HumanMessage(content=human_text),
         ])
 
+        logger.debug("planner_llm_raw", response=response.content[:500])
         plan_dict = _extract_json(response.content)
+
+        # Mistral иногда оборачивает в {"test_plan": {...}} или {"plan": {...}}
+        for wrapper_key in ("test_plan", "plan", "result", "output"):
+            if wrapper_key in plan_dict and isinstance(plan_dict[wrapper_key], dict):
+                plan_dict = plan_dict[wrapper_key]
+                break
 
         # Валидируем базовую структуру
         if "steps" not in plan_dict or not isinstance(plan_dict["steps"], list):
-            raise ValueError("Тест-план не содержит поля 'steps'")
+            logger.error("planner_no_steps", keys=list(plan_dict.keys()), response=response.content[:300])
+            raise ValueError(f"Тест-план не содержит поля 'steps'. Ключи: {list(plan_dict.keys())}")
 
         logger.info(
             "planner_done",
