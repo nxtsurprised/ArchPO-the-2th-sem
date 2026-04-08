@@ -142,6 +142,12 @@ async def writer_node(state: PMIAgentState) -> dict:
 
         section_dict = _extract_json(response.content)
 
+        # Mistral иногда оборачивает ответ в {"Протокол тестирования": {...}} и т.п.
+        for key in list(section_dict.keys()):
+            if isinstance(section_dict[key], dict) and "verdict" not in section_dict:
+                section_dict = section_dict[key]
+                break
+
         # Дополняем статистикой (не доверяем LLM считать)
         section_dict.update({
             "function_id": state["function_id"],
