@@ -99,8 +99,8 @@ services:
       - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
       - LOG_LEVEL=${LOG_LEVEL:-INFO}
     volumes:
-      - ./knowledge:/app/knowledge:ro
-      - pmi_outputs:/app/outputs
+      - .:/app:ro                          # исходники — изменения без пересборки
+      - pmi_outputs:/app/outputs           # outputs должен быть writable
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
       interval: 20s
