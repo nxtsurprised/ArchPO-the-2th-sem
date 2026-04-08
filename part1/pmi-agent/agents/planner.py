@@ -36,7 +36,7 @@ def _get_llm() -> ChatOllama:
 def _get_rag() -> RAGRetriever:
     global _rag
     if _rag is None:
-        _rag = RAGRetriever(n_results=4)
+        _rag = RAGRetriever(n_results=2)  # меньше контекста — меньше confusion у Mistral
     return _rag
 
 
@@ -95,11 +95,18 @@ async def planner_node(state: PMIAgentState) -> dict:
     # Формируем промпт
     system_prompt = _load_system_prompt(rag_context)
 
+    criteria = "\n".join(f"- {c}" for c in state.get("acceptance_criteria", []))
     human_text = (
-        f"Функция: {state['function_name']} (ID: {state['function_id']})\n\n"
-        f"Описание: {state['function_description']}\n\n"
-        f"Критерии приемки:\n"
-        + "\n".join(f"- {c}" for c in state.get("acceptance_criteria", []))
+        f"Сгенерируй тест-план в формате JSON.\n\n"
+        f"Входные данные:\n"
+        f"- function_id: {state['function_id']}\n"
+        f"- function_name: {state['function_name']}\n"
+        f"- description: {state['function_description']}\n"
+        f"- acceptance_criteria:\n{criteria}\n\n"
+        f"Обязательные поля в ответе: function_id, function_name, objective, "
+        f"preconditions, steps, postconditions, gost_method.\n"
+        f"Поле steps — массив объектов с полями: "
+        f"step_number, action, description, target, input_data, expected_result, gost_ref."
     )
 
     try:
