@@ -59,7 +59,15 @@ async def _cleanup_node(state: PMIAgentState) -> dict:
     function_id = state.get("function_id", "")
     if function_id:
         await cleanup_browser(function_id)
-    return {}
+    # LangGraph 0.1.x требует непустой dict — пробрасываем текущий статус
+    return {"status": state.get("status", "done")}
+
+
+def _should_continue_planner(state: PMIAgentState) -> str:
+    """Условное ребро после planner — пропускаем executor если планировщик упал."""
+    if state.get("status") == "failed":
+        return "cleanup"
+    return "executor"
 
 
 def build_graph() -> StateGraph:
@@ -75,8 +83,15 @@ def build_graph() -> StateGraph:
     # Точка входа
     builder.set_entry_point("planner")
 
-    # Рёбра
-    builder.add_edge("planner", "executor")
+    # Условное ребро после planner (если упал — сразу в cleanup)
+    builder.add_conditional_edges(
+        "planner",
+        _should_continue_planner,
+        {
+            "executor": "executor",
+            "cleanup": "cleanup",
+        },
+    )
 
     # Условное ребро после executor (цикл или переход к writer)
     builder.add_conditional_edges(
