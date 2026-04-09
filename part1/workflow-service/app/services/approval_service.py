@@ -285,13 +285,10 @@ async def decide(
     db.add(decision_obj)
     await db.flush()
 
-    # Reload round decisions including the new one (explicit selectinload to avoid lazy-load in sync context)
-    round_reload = await db.execute(
-        select(ApprovalRound)
-        .options(selectinload(ApprovalRound.decisions))
-        .where(ApprovalRound.id == active_round.id)
-    )
-    active_round = round_reload.scalars().first()
+    # Refresh the decisions collection explicitly — selectinload skips already-loaded
+    # collections in the identity map, so db.refresh is the only reliable way to
+    # pick up the decision we just flushed.
+    await db.refresh(active_round, attribute_names=["decisions"])
 
     # Evaluate round outcome
     outcome = evaluate_round(active_round.decisions, approval.type)
