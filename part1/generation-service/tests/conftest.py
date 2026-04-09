@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, patch
 import jwt as pyjwt
 import pytest
 import pytest_asyncio
+from fastapi import Request
 from cryptography.hazmat.primitives.asymmetric import rsa
 from cryptography.hazmat.primitives.serialization import (
     Encoding, PrivateFormat, NoEncryption, PublicFormat,
@@ -89,19 +90,16 @@ async def test_app(rsa_key_pair, render_bundle_fixture):
     mock_minio.get_object_bytes = AsyncMock(return_value=b"fake-file-content")
     mock_minio.stat_object = AsyncMock(return_value={"size": 1024, "etag": "abc"})
 
-    # JWT verification mock: возвращает TokenPayload без HTTP к Auth
-    async def mock_jwt_auth(request):
+    # JWT verification mock: dependency_overrides заменяет get_current_user целиком.
+    # FastAPI инжектирует Request — можно проверить хедер и вернуть 401 без токена.
+    async def mock_jwt_auth(request: Request):
         from shared.schemas.user import TokenPayload
+        from fastapi import HTTPException
         auth_header = request.headers.get("Authorization", "")
         if not auth_header.startswith("Bearer "):
-            from fastapi import HTTPException
             raise HTTPException(status_code=401, detail={"code": "UNAUTHORIZED", "message": "Missing token"})
         token = auth_header.split(" ", 1)[1]
-        payload = pyjwt.decode(
-            token,
-            rsa_key_pair["public"],
-            algorithms=["RS256"],
-        )
+        payload = pyjwt.decode(token, rsa_key_pair["public"], algorithms=["RS256"])
         return TokenPayload(
             sub=uuid.UUID(payload["sub"]),
             org_id=uuid.UUID(payload["org_id"]),
@@ -114,13 +112,17 @@ async def test_app(rsa_key_pair, render_bundle_fixture):
     async def mock_fetch_bundle(document_id: str) -> dict:
         return render_bundle_fixture
 
+    from app.api.deps import get_current_user
+    app.dependency_overrides[get_current_user] = mock_jwt_auth
+
     with (
         patch("app.storage.minio_client._minio", mock_minio),
         patch("app.storage.minio_client.get_minio_client", return_value=mock_minio),
-        patch("app.api.deps._jwt_auth", side_effect=mock_jwt_auth),
         patch("app.services.generation_service._fetch_render_bundle", side_effect=mock_fetch_bundle),
     ):
         yield app
+
+    app.dependency_overrides.clear()
 
 
 @pytest_asyncio.fixture
