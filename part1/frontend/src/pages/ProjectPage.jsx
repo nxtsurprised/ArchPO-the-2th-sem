@@ -665,6 +665,7 @@ function CreateDocumentModal({ projectId, templates, onClose, onSuccess }) {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.name.trim()) { setError('Введите наименование документа'); return; }
+    if (!form.type) { setError('Выберите тип документа'); return; }
     setSaving(true);
     setError('');
     try {
@@ -703,9 +704,9 @@ function CreateDocumentModal({ projectId, templates, onClose, onSuccess }) {
               />
             </div>
             <div className="form-group">
-              <label className="form-label">Тип</label>
+              <label className="form-label">Тип *</label>
               <select className="form-select" value={form.type} onChange={(e) => handleTypeChange(e.target.value)}>
-                <option value="">Не указан</option>
+                <option value="" disabled>Выберите тип</option>
                 <option value="tz">Техническое задание</option>
                 <option value="chtz">Частное техническое задание</option>
                 <option value="pmi">Программа и методика испытаний</option>

@@ -13,11 +13,36 @@ from app.services import kafka_consumer
 logger = structlog.get_logger()
 
 
+async def _seed_system_templates() -> None:
+    """Insert base system templates if they don't exist (idempotent)."""
+    import json
+    from pathlib import Path
+    from app.models.template import Template
+
+    seeds_dir = Path(__file__).parent.parent / "seeds" / "templates"
+    for json_file in sorted(seeds_dir.glob("*.json")):
+        data = json.loads(json_file.read_text(encoding="utf-8"))
+        template_id = data.pop("_id")
+        existing = await Template.get(template_id)
+        if existing:
+            continue
+        tmpl = Template(id=template_id, **data)
+        await tmpl.insert()
+        logger.info("template_seeded", id=template_id, name=tmpl.name)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
     await init_db(settings)
     kafka_consumer.start_consumer(settings.KAFKA_BOOTSTRAP_SERVERS)
+
+    try:
+        await _seed_system_templates()
+        logger.info("templates_seeded")
+    except Exception as exc:
+        logger.warning("templates_seed_failed", error=str(exc))
+
     logger.info("catalog_service_started", version=settings.APP_VERSION)
     yield
     await kafka_consumer.stop_consumer()
