@@ -131,7 +131,7 @@ export default function DocumentDetailPage() {
       const jobId = jobRes.data.job_id;
 
       // 2. Ждём завершения (polling до 60 секунд)
-      let job = { status: jobRes.data.status };
+      let job = jobRes.data; // сохраняем весь объект, включая поле error
       for (let i = 0; i < 60 && !['completed', 'failed'].includes(job.status); i++) {
         await new Promise((r) => setTimeout(r, 1000));
         const statusRes = await generationApi.getJob(jobId);

@@ -10,6 +10,11 @@ const STATUS_MAP = {
   review: { label: 'На рассмотрении', color: 'var(--status-review)', bg: 'var(--status-review-bg)' },
   active: { label: 'Активен', color: 'var(--status-approved)', bg: 'var(--status-approved-bg)' },
   inactive: { label: 'Неактивен', color: 'var(--status-cancelled)', bg: 'var(--status-cancelled-bg)' },
+  // round statuses
+  completed: { label: 'Завершён', color: 'var(--status-approved)', bg: 'var(--status-approved-bg)' },
+  // function/document statuses
+  processing: { label: 'Выполняется', color: 'var(--status-pending)', bg: 'var(--status-pending-bg)' },
+  failed: { label: 'Ошибка', color: 'var(--status-rejected)', bg: 'var(--status-rejected-bg)' },
   // function priorities
   high: { label: 'Высокий', color: 'var(--status-rejected)', bg: 'var(--status-rejected-bg)' },
   medium: { label: 'Средний', color: 'var(--status-pending)', bg: 'var(--status-pending-bg)' },

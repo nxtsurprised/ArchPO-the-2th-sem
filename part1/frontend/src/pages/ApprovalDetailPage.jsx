@@ -19,6 +19,18 @@ const DECISION_LABELS = {
   review: 'Рецензия',
 };
 
+const ROLE_LABELS = {
+  pm: 'Менеджер проекта',
+  analyst: 'Аналитик',
+  admin: 'Администратор',
+  superadmin: 'Системный администратор',
+};
+
+const SIDE_LABELS = {
+  customer: 'Заказчик',
+  contractor: 'Подрядчик',
+};
+
 const DECISION_STATUS_MAP = {
   approve: 'approved',
   reject: 'rejected',
@@ -287,7 +299,7 @@ export default function ApprovalDetailPage() {
             <div style={{ fontFamily: 'monospace', fontSize: 13 }}>
               {approval.initiated_by}
               <span style={{ color: 'var(--color-text-secondary)', marginLeft: 6 }}>
-                ({approval.initiated_by_side})
+                ({SIDE_LABELS[approval.initiated_by_side] || approval.initiated_by_side})
               </span>
             </div>
           </div>
@@ -465,9 +477,9 @@ function DecisionRow({ decision, isMine }) {
       </div>
       <div style={{ flex: 1, minWidth: 0 }}>
         <div style={{ fontSize: 12, color: 'var(--color-text-secondary)', marginBottom: 2 }}>
-          <span style={{ fontWeight: 600 }}>{decision.user_role}</span>
+          <span style={{ fontWeight: 600 }}>{ROLE_LABELS[decision.user_role] || decision.user_role}</span>
           {' · '}
-          <span>{decision.user_side}</span>
+          <span>{SIDE_LABELS[decision.user_side] || decision.user_side}</span>
           {isMine && (
             <span style={{ marginLeft: 6, color: 'var(--color-primary)', fontWeight: 600 }}>
               (вы)

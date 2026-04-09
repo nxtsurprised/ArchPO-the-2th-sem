@@ -25,8 +25,9 @@ def _now() -> datetime:
 async def _load_full(db: AsyncSession, approval_id: str) -> ApprovalRequest | None:
     """Load ApprovalRequest with all nested relationships already in memory.
 
-    Required before returning to FastAPI so Pydantic's synchronous model_validate
-    doesn't trigger async lazy-loads (which raise MissingGreenlet errors).
+    Uses populate_existing=True to bypass the SQLAlchemy identity map cache
+    (session is configured with expire_on_commit=False, so cached objects
+    would otherwise hide newly created rounds/decisions after a commit).
     """
     result = await db.execute(
         select(ApprovalRequest)
@@ -34,6 +35,7 @@ async def _load_full(db: AsyncSession, approval_id: str) -> ApprovalRequest | No
             selectinload(ApprovalRequest.rounds).selectinload(ApprovalRound.decisions)
         )
         .where(ApprovalRequest.id == approval_id)
+        .execution_options(populate_existing=True)
     )
     return result.unique().scalars().first()
 

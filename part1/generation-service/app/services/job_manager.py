@@ -20,9 +20,10 @@ class JobManager:
     async def create(self, document_id: str, fmt: Literal["docx", "xlsx"], user_id: str) -> Job:
         """Создаёт новый job или возвращает существующий (idempotency)."""
         async with self._lock:
-            # Idempotency: если job для той же пары document_id+format уже существует — вернуть его
+            # Idempotency: вернуть существующий job только если он ещё активен
+            # (failed-джобы не переиспользуем — пользователь должен мочь попробовать снова)
             for job in self._jobs.values():
-                if job.document_id == document_id and job.format == fmt:
+                if job.document_id == document_id and job.format == fmt and job.status != "failed":
                     return job
 
             job = Job(document_id=document_id, format=fmt, requested_by=user_id)
