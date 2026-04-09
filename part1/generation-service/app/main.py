@@ -2,6 +2,7 @@ from __future__ import annotations
 import structlog
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
+from fastapi import HTTPException as FastAPIHTTPException
 from fastapi.exceptions import RequestValidationError
 
 from app.config import get_settings
@@ -51,8 +52,9 @@ app = FastAPI(
 
 # ── Middleware ────────────────────────────────────────────────────────────────
 app.middleware("http")(correlation_id_middleware)
-app.add_exception_handler(Exception, global_error_handler)
+app.add_exception_handler(FastAPIHTTPException, global_error_handler)
 app.add_exception_handler(RequestValidationError, global_error_handler)
+app.add_exception_handler(Exception, global_error_handler)
 
 # ── Роутеры ──────────────────────────────────────────────────────────────────
 app.include_router(jobs.router)

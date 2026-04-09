@@ -20,13 +20,9 @@ class JobManager:
     async def create(self, document_id: str, fmt: Literal["docx", "xlsx"], user_id: str) -> Job:
         """Создаёт новый job или возвращает существующий (idempotency)."""
         async with self._lock:
-            # Idempotency: если уже есть pending/processing для той же пары — вернуть его
+            # Idempotency: если job для той же пары document_id+format уже существует — вернуть его
             for job in self._jobs.values():
-                if (
-                    job.document_id == document_id
-                    and job.format == fmt
-                    and job.status in ("pending", "processing")
-                ):
+                if job.document_id == document_id and job.format == fmt:
                     return job
 
             job = Job(document_id=document_id, format=fmt, requested_by=user_id)
