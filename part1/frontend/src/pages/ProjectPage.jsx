@@ -891,7 +891,7 @@ function MyTasksTab({ projectId }) {
             </thead>
             <tbody>
               {tasks.map((a) => (
-                <tr key={a.id}>
+                <tr key={a.approval_id}>
                   <td style={{ fontSize: 13, fontFamily: 'monospace' }}>
                     {a.document_id?.slice(0, 8)}...
                   </td>
@@ -899,7 +899,7 @@ function MyTasksTab({ projectId }) {
                   <td><StatusBadge status={a.status} /></td>
                   <td style={{ fontSize: 13 }}>{a.current_round ?? '—'}</td>
                   <td>
-                    <Link to={`/projects/${projectId}/approvals/${a.id}`} className="btn btn-primary btn-sm">
+                    <Link to={`/projects/${projectId}/approvals/${a.approval_id}`} className="btn btn-primary btn-sm">
                       Рассмотреть
                     </Link>
                   </td>

@@ -160,19 +160,36 @@ export default function DocumentDetailPage() {
     }
   };
 
+  const formatGenerateError = (msg) => {
+    if (!msg) return msg;
+    if (msg.startsWith('Missing required fields:')) {
+      return 'Не все обязательные поля заполнены. Нажмите «Редактировать» и заполните поля, отмеченные *.';
+    }
+    return msg;
+  };
+
   if (loading) return <Spinner center />;
   if (error) return <ErrorMessage error={error} onRetry={load} />;
   if (!doc) return null;
 
   return (
     <div>
-      {/* Breadcrumb */}
-      <div style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 16 }}>
-        <Link to="/">Проекты</Link>
-        {' / '}
-        <Link to={`/projects/${projectId}?tab=documents`}>Документы</Link>
-        {' / '}
-        <span>{doc.name}</span>
+      {/* Breadcrumb + Back */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 16 }}>
+        <button
+          className="btn btn-secondary btn-sm"
+          onClick={() => navigate(`/projects/${projectId}?tab=documents`)}
+          style={{ flexShrink: 0 }}
+        >
+          ← Назад
+        </button>
+        <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+          <Link to="/">Проекты</Link>
+          {' / '}
+          <Link to={`/projects/${projectId}?tab=documents`}>Документы</Link>
+          {' / '}
+          <span>{doc.name}</span>
+        </div>
       </div>
 
       {/* Page header */}
@@ -232,7 +249,7 @@ export default function DocumentDetailPage() {
         </div>
       )}
       {saveError && <div className="mb-16"><ErrorMessage error={saveError} /></div>}
-      {generateError && <div className="mb-16"><ErrorMessage error={generateError} /></div>}
+      {generateError && <div className="mb-16"><ErrorMessage error={formatGenerateError(generateError)} /></div>}
 
       {downloadUrl && (
         <div style={{ background: 'var(--color-primary-light)', border: '1px solid #bfdbfe', borderRadius: 6, padding: '10px 14px', fontSize: 13, marginBottom: 16 }}>

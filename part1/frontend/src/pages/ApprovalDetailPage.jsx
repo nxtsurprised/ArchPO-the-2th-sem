@@ -82,13 +82,15 @@ export default function ApprovalDetailPage() {
   );
 
   // Permission checks
+  // When status is 'revision', the backend auto-creates a new round on the first decide() call,
+  // so we allow binding decisions in revision state too.
   const canMakeBindingDecision =
-    isPending &&
+    (isPending || isRevision) &&
     !myDecision &&
     (userRole === 'pm' || user?.is_superadmin);
 
   const canReview =
-    isPending &&
+    (isPending || isRevision) &&
     !myReview &&
     approval?.type !== 'nmck_final' &&
     (userRole === 'pm' || userRole === 'analyst' || user?.is_superadmin);
@@ -252,6 +254,12 @@ export default function ApprovalDetailPage() {
           )}
         </div>
       </div>
+
+      {isRevision && (
+        <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6, padding: '10px 14px', fontSize: 13, color: '#92400e', marginBottom: 16 }}>
+          Документ отправлен на доработку. После исправлений примите решение — автоматически откроется раунд {(approval.current_round ?? 0) + 1}.
+        </div>
+      )}
 
       {actionError && (
         <div className="alert alert-error" style={{ marginBottom: 16 }}>
