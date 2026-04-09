@@ -37,7 +37,7 @@ def _get_llm() -> ChatOllama:
 def _get_rag() -> RAGRetriever:
     global _rag
     if _rag is None:
-        _rag = RAGRetriever(n_results=4)
+        _rag = RAGRetriever(n_results=2)
     return _rag
 
 
@@ -46,6 +46,38 @@ def _load_system_prompt(rag_context: str) -> str:
     prompt_path = Path(__file__).parent.parent / "prompts" / "writer_system.md"
     template = prompt_path.read_text(encoding="utf-8")
     return template.replace("{rag_context}", rag_context)
+
+
+_RU_KEY_MAP = {
+    # Вердикт / результат
+    "вердикт": "verdict",
+    "результат": "verdict",
+    "итог": "verdict",
+    # Наблюдения
+    "наблюдения": "observations",
+    "описание": "observations",
+    "комментарии": "observations",
+    # Дефекты
+    "дефекты": "defects",
+    "ошибки": "defects",
+    "замечания": "defects",
+    # Рекомендации
+    "рекомендации": "recommendation",
+    "рекомендация": "recommendation",
+    # Цель
+    "цель": "test_objective",
+    "цель_теста": "test_objective",
+    "цель испытания": "test_objective",
+    # Метод
+    "метод": "method",
+    "метод_испытания": "method",
+    # Ссылка на ГОСТ
+    "гост": "gost_ref",
+    "ссылка_на_гост": "gost_ref",
+    "нормативный_документ": "gost_ref",
+}
+
+_REQUIRED_KEYS = {"verdict", "observations", "defects", "recommendation"}
 
 
 def _extract_json(text: str) -> dict:
@@ -60,6 +92,36 @@ def _extract_json(text: str) -> dict:
         except json.JSONDecodeError:
             pass
     raise ValueError(f"Не удалось извлечь JSON: {text[:200]}")
+
+
+def _normalize_keys(d: dict) -> dict:
+    """Приводит русские ключи к английским эквивалентам (in-place copy)."""
+    result = {}
+    for k, v in d.items():
+        normalized = _RU_KEY_MAP.get(k.lower().strip(), k)
+        result[normalized] = v
+    return result
+
+
+def _unwrap_section(raw: dict) -> dict:
+    """
+    Разворачивает вложенный dict если LLM обернул раздел ПМИ в
+    {"Протокол тестирования": {...}} или {"ПМИ": {...}} и т.п.
+    Затем нормализует русские ключи → английские.
+    """
+    d = raw
+    # До 2 уровней вложенности
+    for _ in range(2):
+        # Если уже есть хоть один из ожидаемых ключей — готово
+        if _REQUIRED_KEYS & set(d.keys()):
+            break
+        # Ищем единственный dict-value (обёртка)
+        dict_values = [(k, v) for k, v in d.items() if isinstance(v, dict)]
+        if len(dict_values) == 1:
+            d = dict_values[0][1]
+        else:
+            break
+    return _normalize_keys(d)
 
 
 def _count_results(step_results: list[dict]) -> tuple[int, int, int]:
@@ -140,13 +202,7 @@ async def writer_node(state: PMIAgentState) -> dict:
             HumanMessage(content=human_text),
         ])
 
-        section_dict = _extract_json(response.content)
-
-        # Mistral иногда оборачивает ответ в {"Протокол тестирования": {...}} и т.п.
-        for key in list(section_dict.keys()):
-            if isinstance(section_dict[key], dict) and "verdict" not in section_dict:
-                section_dict = section_dict[key]
-                break
+        section_dict = _unwrap_section(_extract_json(response.content))
 
         # Дополняем статистикой (не доверяем LLM считать)
         section_dict.update({
