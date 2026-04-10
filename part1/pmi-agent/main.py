@@ -1,7 +1,9 @@
 """FastAPI entrypoint — PMI Agent Service."""
 
+import asyncio
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 
 import structlog
@@ -48,18 +50,34 @@ pmi_verdicts = Counter(
 _tasks: dict[str, dict] = {}
 
 
+# ─── Фоновая загрузка knowledge base ─────────────────────────────────────
+def _sync_load_knowledge() -> int:
+    """Синхронная загрузка — запускается в thread-pool чтобы не блокировать event loop."""
+    loader = KnowledgeLoader()
+    return loader.load_all()
+
+
 # ─── Lifespan ─────────────────────────────────────────────────────────────
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info("pmi_agent_starting", model=settings.ollama_model)
 
-    # Загружаем knowledge base в ChromaDB
-    try:
-        loader = KnowledgeLoader()
-        chunks = loader.load_all()
-        logger.info("knowledge_loaded", chunks=chunks)
-    except Exception as e:
-        logger.warning("knowledge_load_failed", error=str(e))
+    # Загрузка knowledge base в фоне: SentenceTransformer скачивает модель (~300 MB) и
+    # вычисляет embeddings — синхронная CPU-bound операция, может занять несколько минут.
+    # Запускаем в executor-потоке, чтобы сервер сразу отвечал на /health.
+    loop = asyncio.get_event_loop()
+    _executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="kb-loader")
+
+    async def _bg_load():
+        try:
+            chunks = await loop.run_in_executor(_executor, _sync_load_knowledge)
+            logger.info("knowledge_loaded", chunks=chunks)
+        except Exception as exc:
+            logger.warning("knowledge_load_failed", error=str(exc))
+        finally:
+            _executor.shutdown(wait=False)
+
+    asyncio.create_task(_bg_load())
 
     yield
 
