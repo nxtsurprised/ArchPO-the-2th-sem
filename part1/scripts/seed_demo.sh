@@ -164,7 +164,7 @@ PYEOF
 
 log_info "Bootstrap вывод: $BOOTSTRAP_OUTPUT"
 
-CUST_ORG_ID=$(echo "$BOOTSTRAP_OUTPUT" | grep -oP '(?<=CUST_ORG_(?:CREATED|EXISTS):)[0-9a-f-]+')
+CUST_ORG_ID=$(echo "$BOOTSTRAP_OUTPUT" | grep -oE 'CUST_ORG_(CREATED|EXISTS):[0-9a-f-]+' | awk -F: '{print $2}')
 [[ -z "$CUST_ORG_ID" ]] && log_error "Не удалось получить ID организации заказчика"
 log_info "ID организации заказчика: $CUST_ORG_ID"
 
