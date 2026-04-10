@@ -49,6 +49,10 @@ async def create_document(data: DocumentCreate, created_by: str) -> Document:
                         f["key"]: "" for f in section["fields"]
                     }
 
+    # Merge: template empty fields as base, caller-provided sections win
+    provided_sections = (data.data or {}).get("sections", {})
+    merged_sections = {**initial_sections, **provided_sections}
+
     doc = Document(
         project_id=data.project_id,
         template_id=data.template_id,
@@ -56,7 +60,7 @@ async def create_document(data: DocumentCreate, created_by: str) -> Document:
         type=data.type,
         status="draft",
         function_ids=data.function_ids,
-        data={"sections": initial_sections},
+        data={"sections": merged_sections},
         version=1,
         created_by=created_by,
         created_at=now,

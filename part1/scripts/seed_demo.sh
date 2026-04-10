@@ -403,38 +403,42 @@ TZ_CHECK=$(api_call GET "$CATALOG_URL/api/catalog/documents?project_id=$PROJECT_
     -H "$AUTH_HEADER" || echo '{"items":[]}')
 TZ_DOC_ID=$(echo "$TZ_CHECK" | jq -r 'if .items | length > 0 then .items[0].id else "" end')
 
+TZ_SECTIONS=$(jq -n '{
+    general: {
+        full_name: "Автоматизированная система формирования документации по ГОСТ 34",
+        short_name: "АС ГОСТ-ДОК",
+        document_basis: "Государственный контракт №123/2024 от 01.01.2024",
+        planned_completion: "31.12.2024"
+    },
+    purpose: "Система предназначена для автоматизации формирования и согласования документации по ГОСТ 34.",
+    requirements: {
+        functional: "1. Аутентификация пользователей с поддержкой 2FA (TOTP). Блокировка после 5 неудачных попыток на 30 минут.\n2. Справочник функций АС как единый источник данных для всех документов.\n3. Генерация ТЗ, ЧТЗ, ПМИ (.docx по ГОСТ 2.105) и НМЦК (.xlsx с формулами).\n4. Многораундовое согласование документов с участием РП заказчика и подрядчика.\n5. Полный аудит всех операций пользователей.",
+        security: "Argon2id для хранения паролей, AES-256 для персональных данных, RBAC с 7 ролями, блокировка аккаунта после 5 неудачных попыток входа.",
+        performance: "API: не более 500 мс (p95). Генерация .docx: не более 10 секунд. Одновременно до 50 пользователей."
+    },
+    acceptance_criteria: "Все функции АС покрыты тестами ПМИ. Протокол испытаний оформлен по ГОСТ 34.603."
+}')
+
 if [[ -z "$TZ_DOC_ID" ]]; then
     TZ_BODY=$(jq -n \
         --arg pid "$PROJECT_ID" \
         --argjson fns "$ALL_FN_IDS" \
-        '{
-            project_id: $pid,
-            name: "Техническое задание на разработку АС ГОСТ 34",
-            type: "tz",
-            function_ids: $fns,
-            data: {
-                sections: {
-                    general: {
-                        full_name: "Автоматизированная система формирования документации по ГОСТ 34",
-                        short_name: "АС ГОСТ-ДОК",
-                        document_basis: "Государственный контракт №123/2024 от 01.01.2024",
-                        planned_completion: "31.12.2024"
-                    },
-                    purpose: "Система предназначена для автоматизации формирования и согласования документации по ГОСТ 34.",
-                    requirements: {
-                        functional: "1. Аутентификация с 2FA\n2. Справочник функций\n3. Генерация ТЗ/ЧТЗ/ПМИ/НМЦК\n4. Многораундовое согласование\n5. Аудит операций",
-                        security: "Argon2id для паролей, AES-256 для ПДн, RBAC (7 ролей), блокировка после 5 неудачных попыток.",
-                        performance: "API: не более 500 мс (p95). Генерация .docx: не более 10 секунд."
-                    },
-                    acceptance_criteria: "Все функции покрыты тестами ПМИ. Протокол по ГОСТ 34.603."
-                }
-            }
-        }')
+        --argjson secs "$TZ_SECTIONS" \
+        '{project_id:$pid,name:"Техническое задание на разработку АС ГОСТ 34",type:"tz",function_ids:$fns,data:{sections:$secs}}')
     TZ_RESP=$(api_call POST "$CATALOG_URL/api/catalog/documents" -H "$AUTH_HEADER" -d "$TZ_BODY")
     TZ_DOC_ID=$(echo "$TZ_RESP" | jq -r '.id')
     log_info "ТЗ документ создан: $TZ_DOC_ID"
 else
-    log_info "ТЗ документ уже существует: $TZ_DOC_ID"
+    # Патчим существующий ТЗ документ если секции пустые
+    EXISTING_TZ_SECTIONS=$(echo "$TZ_CHECK" | jq -r '.items[0].data.sections // {} | keys | length')
+    if [[ "$EXISTING_TZ_SECTIONS" == "0" ]]; then
+        api_call PUT "$CATALOG_URL/api/catalog/documents/$TZ_DOC_ID" \
+            -H "$AUTH_HEADER" \
+            -d "$(jq -n --argjson secs "$TZ_SECTIONS" '{data:{sections:$secs}}')" >/dev/null || true
+        log_info "ТЗ документ обновлён: секции заполнены"
+    else
+        log_info "ТЗ документ уже существует: $TZ_DOC_ID"
+    fi
 fi
 
 # ── Шаг 11: ПМИ документ ──────────────────────────────────────
