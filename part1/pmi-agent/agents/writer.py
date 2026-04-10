@@ -157,12 +157,56 @@ def _summarize_steps(
     return "\n".join(lines)
 
 
+def _build_draft_section(state: PMIAgentState) -> dict:
+    """
+    Формирует раздел ПМИ в режиме черновика (без фактического выполнения тестов).
+    Описывает методику и ожидаемые результаты на основе тест-плана.
+    """
+    test_plan = state.get("test_plan", {}) or {}
+    steps = test_plan.get("steps", [])
+    scenarios = []
+    for step in steps:
+        scenarios.append(
+            f"Шаг {step.get('step_number', '?')}: {step.get('description', '')} → "
+            f"ожидается: {step.get('expected_result', '')} [{step.get('gost_ref', '')}]"
+        )
+
+    return {
+        "function_id": state["function_id"],
+        "function_name": state["function_name"],
+        "test_objective": test_plan.get("objective", f"Проверить функцию '{state['function_name']}'"),
+        "method": test_plan.get("gost_method", "Проверка"),
+        "gost_ref": "ГОСТ 34.603-92",
+        "preconditions": test_plan.get("preconditions", []),
+        "postconditions": test_plan.get("postconditions", []),
+        "scenarios": scenarios,
+        "steps_total": len(steps),
+        "steps_passed": None,
+        "steps_failed": None,
+        "verdict": "испытание не проводилось",
+        "observations": (
+            f"Методика испытания сформирована автоматически на основе справочника функций. "
+            f"Запланировано {len(steps)} шагов проверки. "
+            f"Фактическое выполнение не проводилось — документ является черновиком ПМИ."
+        ),
+        "defects": [],
+        "recommendation": "Провести испытание согласно данной методике и зафиксировать фактические результаты.",
+        "_draft": True,
+    }
+
+
 async def writer_node(state: PMIAgentState) -> dict:
     """
     LangGraph-узел Протоколиста.
     Вход: test_plan + step_results
     Выход: обновление поля pmi_section в state
     """
+    # Режим черновика — не было выполнения тестов, только план
+    if state.get("draft_mode"):
+        section = _build_draft_section(state)
+        logger.info("writer_draft_done", function_id=state["function_id"], steps=section["steps_total"])
+        return {"pmi_section": section, "status": "done"}
+
     test_plan = state.get("test_plan", {})
     step_results = state.get("step_results", [])
 

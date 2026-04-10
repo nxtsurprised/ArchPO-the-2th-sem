@@ -29,6 +29,7 @@ class Settings(BaseSettings):
 
     # Безопасность
     secret_key: str = Field(default="dev-secret-key")
+    internal_api_secret: str = Field(default="internal_secret")
 
     # LangChain tracing
     langchain_tracing_v2: bool = Field(default=False)

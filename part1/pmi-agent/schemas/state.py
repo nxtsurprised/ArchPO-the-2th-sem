@@ -36,3 +36,4 @@ class PMIAgentState(TypedDict):
     error: str | None
     iteration_count: int          # Защита от бесконечных циклов
     rag_context: str | None       # RAG-контекст, подготовленный для текущего узла
+    draft_mode: bool              # True → только план+методика, без запуска Playwright

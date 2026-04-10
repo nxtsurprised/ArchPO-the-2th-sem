@@ -114,6 +114,87 @@ def build_graph() -> StateGraph:
 _graph = build_graph().compile()
 
 
+def build_draft_graph() -> StateGraph:
+    """
+    Упрощённый граф для режима черновика: START → planner_node → writer_node → END.
+    Executor (Playwright) полностью пропускается.
+    """
+    builder = StateGraph(PMIAgentState)
+
+    builder.add_node("planner", planner_node)
+    builder.add_node("writer", writer_node)
+    builder.add_node("cleanup", _cleanup_node)
+
+    builder.set_entry_point("planner")
+
+    # После planner: если ошибка → cleanup, иначе → writer
+    builder.add_conditional_edges(
+        "planner",
+        _should_continue_planner,
+        {
+            "executor": "writer",   # в draft-режиме "executor" редиректим сразу на writer
+            "cleanup": "cleanup",
+        },
+    )
+
+    builder.add_edge("writer", "cleanup")
+    builder.add_edge("cleanup", END)
+
+    return builder
+
+
+_draft_graph = build_draft_graph().compile()
+
+
+async def run_draft_pipeline(
+    function_id: str,
+    function_name: str,
+    function_description: str,
+    acceptance_criteria: list[str],
+    project_id: str,
+) -> dict:
+    """
+    Запускает черновой пайплайн: план → методика (без Playwright).
+
+    Returns:
+        dict с ключами: status, pmi_section, error, test_plan
+    """
+    initial_state: PMIAgentState = {
+        "function_id": function_id,
+        "function_name": function_name,
+        "function_description": function_description,
+        "acceptance_criteria": acceptance_criteria,
+        "project_id": project_id,
+        "target_url": "",
+        "test_plan": None,
+        "current_step": 0,
+        "step_results": [],
+        "pmi_section": None,
+        "status": "planning",
+        "error": None,
+        "iteration_count": 0,
+        "rag_context": None,
+        "draft_mode": True,
+    }
+
+    logger.info("draft_pipeline_start", function_id=function_id)
+
+    final_state = await _draft_graph.ainvoke(initial_state)
+
+    logger.info(
+        "draft_pipeline_done",
+        function_id=function_id,
+        status=final_state.get("status"),
+    )
+
+    return {
+        "status": final_state.get("status"),
+        "pmi_section": final_state.get("pmi_section"),
+        "error": final_state.get("error"),
+        "test_plan": final_state.get("test_plan"),
+    }
+
+
 async def run_pmi_pipeline(
     function_id: str,
     function_name: str,
