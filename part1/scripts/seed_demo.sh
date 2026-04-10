@@ -470,6 +470,134 @@ else
     fi
 fi
 
+# ── Шаг 12: Проект SauceDemo (тест трёх агентов) ─────────────
+log_section "Создание проекта SauceDemo для полного PMI-прогона"
+
+SAUCE_PROJECTS=$(api_call GET "$AUTH_URL/api/auth/projects?per_page=100" \
+    -H "$AUTH_HEADER" || echo '{"items":[]}')
+SAUCE_PROJECT_ID=$(echo "$SAUCE_PROJECTS" | jq -r '.items[] | select(.code=="SAUCE-2024") | .id' | head -1)
+
+if [[ -z "$SAUCE_PROJECT_ID" ]]; then
+    SAUCE_PROJ=$(api_call POST "$AUTH_URL/api/auth/projects" \
+        -H "$AUTH_HEADER" \
+        -d "{\"code\":\"SAUCE-2024\",\"name\":\"Тестирование SauceDemo (3 агента)\",\"customer_org_id\":\"$CUST_ORG_ID\",\"contractor_org_id\":\"$CONTR_ORG_ID\"}")
+    SAUCE_PROJECT_ID=$(echo "$SAUCE_PROJ" | jq -r '.id')
+    log_info "Проект SauceDemo создан: $SAUCE_PROJECT_ID"
+else
+    log_info "Проект SauceDemo уже существует: $SAUCE_PROJECT_ID"
+fi
+
+# Назначаем роли в новом проекте
+assign_role_project() {
+    local user_id="$1" role_name="$2" proj_id="$3"
+    api_call PATCH "$AUTH_URL/api/auth/users/$user_id/roles" \
+        -H "$AUTH_HEADER" \
+        -d "{\"project_id\":\"$proj_id\",\"role_name\":\"$role_name\"}" >/dev/null 2>&1 || true
+}
+assign_role_project "$PM_CUST_ID"  "pm"       "$SAUCE_PROJECT_ID"
+assign_role_project "$PM_CONTR_ID" "pm"       "$SAUCE_PROJECT_ID"
+assign_role_project "$ANALYST_ID"  "analyst"  "$SAUCE_PROJECT_ID"
+
+# Функции SauceDemo
+SAUCE_FN_LIST=$(api_call GET "$CATALOG_URL/api/catalog/functions?project_id=$SAUCE_PROJECT_ID&per_page=100" \
+    -H "$AUTH_HEADER" || echo '{"items":[]}')
+
+create_sauce_fn() {
+    local code="$1" name="$2" description="$3" criteria="$4"
+    local fn_id
+    fn_id=$(echo "$SAUCE_FN_LIST" | jq -r --arg c "$code" '.items[] | select(.code==$c) | .id' | head -1)
+    if [[ -z "$fn_id" ]]; then
+        local body
+        body=$(jq -n \
+            --arg pid "$SAUCE_PROJECT_ID" \
+            --arg code "$code" \
+            --arg name "$name" \
+            --arg desc "$description" \
+            --argjson crit "$criteria" \
+            '{project_id:$pid,code:$code,name:$name,description:$desc,category:"main",priority:"high",complexity:"medium",test_params:{approach:"automated",criteria:$crit}}')
+        local resp
+        resp=$(api_call POST "$CATALOG_URL/api/catalog/functions" -H "$AUTH_HEADER" -d "$body")
+        fn_id=$(echo "$resp" | jq -r '.id // empty' 2>/dev/null)
+        log_info "Функция SauceDemo создана: $code ($fn_id)"
+    else
+        log_info "Функция SauceDemo уже существует: $code ($fn_id)"
+    fi
+    printf '%s' "$fn_id"
+}
+
+SF1=$(create_sauce_fn "F-LOGIN-01" \
+    "Аутентификация пользователя" \
+    "Проверка входа на https://www.saucedemo.com. Логин standard_user/secret_sauce должен открывать каталог. Заблокированный пользователь locked_out_user должен получать сообщение об ошибке. Неверный пароль — сообщение об ошибке." \
+    '[{"id":"c1","text":"Успешный вход standard_user/secret_sauce открывает /inventory.html"},{"id":"c2","text":"Вход locked_out_user выдаёт сообщение об блокировке"},{"id":"c3","text":"Неверный пароль выдаёт сообщение об ошибке"},{"id":"c4","text":"После logout пользователь возвращается на страницу входа"}]')
+
+SF2=$(create_sauce_fn "F-CATALOG-01" \
+    "Просмотр каталога товаров" \
+    "Проверка каталога товаров на /inventory.html. После входа отображается список товаров. Работает сортировка (по имени A-Z, Z-A, по цене). Клик на товар открывает его карточку." \
+    '[{"id":"c1","text":"После входа каталог загружается с товарами"},{"id":"c2","text":"Сортировка Name (A to Z) меняет порядок"},{"id":"c3","text":"Клик на название товара открывает страницу товара"},{"id":"c4","text":"Кнопка Back возвращает в каталог"}]')
+
+SF3=$(create_sauce_fn "F-CART-01" \
+    "Управление корзиной" \
+    "Проверка добавления и удаления товаров из корзины на https://www.saucedemo.com. Кнопка Add to cart добавляет товар, счётчик корзины увеличивается. Remove удаляет товар, счётчик уменьшается." \
+    '[{"id":"c1","text":"Add to cart увеличивает счётчик корзины до 1"},{"id":"c2","text":"Иконка корзины ведёт на /cart.html с добавленным товаром"},{"id":"c3","text":"Remove удаляет товар, счётчик обнуляется"},{"id":"c4","text":"Continue Shopping возвращает в каталог"}]')
+
+SF4=$(create_sauce_fn "F-CHECKOUT-01" \
+    "Оформление заказа" \
+    "Проверка checkout-потока на https://www.saucedemo.com. Форма принимает имя, фамилию и почтовый индекс. Overview показывает итоговую сумму. После Finish показывается подтверждение заказа." \
+    '[{"id":"c1","text":"Checkout: Your Information принимает корректные данные"},{"id":"c2","text":"Overview отображает товар и итоговую сумму"},{"id":"c3","text":"Finish показывает Thank you for your order"},{"id":"c4","text":"Back Home возвращает в каталог с пустой корзиной"}]')
+
+SAUCE_FN_IDS=$(jq -n --arg a "$SF1" --arg b "$SF2" --arg c "$SF3" --arg d "$SF4" '[$a,$b,$c,$d]')
+
+# ТЗ для SauceDemo
+SAUCE_TZ_CHECK=$(api_call GET "$CATALOG_URL/api/catalog/documents?project_id=$SAUCE_PROJECT_ID&type=tz&per_page=5" \
+    -H "$AUTH_HEADER" || echo '{"items":[]}')
+SAUCE_TZ_ID=$(echo "$SAUCE_TZ_CHECK" | jq -r 'if .items|length>0 then .items[0].id else "" end')
+
+if [[ -z "$SAUCE_TZ_ID" ]]; then
+    SAUCE_TZ_BODY=$(jq -n \
+        --arg pid "$SAUCE_PROJECT_ID" \
+        --argjson fns "$SAUCE_FN_IDS" \
+        '{project_id:$pid,name:"ТЗ на тестирование SauceDemo",type:"tz",function_ids:$fns,
+          data:{sections:{
+            general:{full_name:"SauceDemo — демонстрационный интернет-магазин",short_name:"SauceDemo",
+                     document_basis:"Демонстрационный проект автотестирования",planned_completion:"31.12.2024"},
+            purpose:"Проверка функциональности интернет-магазина SauceDemo с помощью автоматизированного PMI-агента на базе Playwright.",
+            requirements:{
+              functional:"1. Аутентификация: вход/выход, блокировка.\n2. Каталог товаров: отображение, сортировка, карточка товара.\n3. Корзина: добавление, удаление товаров.\n4. Checkout: заполнение формы, подтверждение заказа.",
+              security:"Отсутствие XSS в полях формы. Недоступность страниц без аутентификации.",
+              performance:"Каждая страница загружается менее чем за 3 секунды."
+            },
+            acceptance_criteria:"Все 4 функции проходят автоматическое тестирование без ошибок. Вердикт агента: соответствует."
+          }}}')
+    SAUCE_TZ_RESP=$(api_call POST "$CATALOG_URL/api/catalog/documents" -H "$AUTH_HEADER" -d "$SAUCE_TZ_BODY")
+    SAUCE_TZ_ID=$(echo "$SAUCE_TZ_RESP" | jq -r '.id')
+    log_info "ТЗ SauceDemo создано: $SAUCE_TZ_ID"
+else
+    log_info "ТЗ SauceDemo уже существует: $SAUCE_TZ_ID"
+fi
+
+# ПМИ для SauceDemo
+SAUCE_PMI_CHECK=$(api_call GET "$CATALOG_URL/api/catalog/documents?project_id=$SAUCE_PROJECT_ID&type=pmi&per_page=5" \
+    -H "$AUTH_HEADER" || echo '{"items":[]}')
+SAUCE_PMI_ID=$(echo "$SAUCE_PMI_CHECK" | jq -r 'if .items|length>0 then .items[0].id else "" end')
+
+if [[ -z "$SAUCE_PMI_ID" ]]; then
+    SAUCE_PMI_BODY=$(jq -n \
+        --arg pid "$SAUCE_PROJECT_ID" \
+        --arg tmpl "$PMI_TMPL_ID" \
+        --argjson fns "$SAUCE_FN_IDS" \
+        '{project_id:$pid,name:"ПМИ SauceDemo (3-агентный прогон)",type:"pmi",template_id:$tmpl,function_ids:$fns,
+          data:{sections:{"1":{system_name:"SauceDemo",version:"текущая",test_basis:"Демонстрационный проект"},
+                           "2":{goal:"Проверить функциональность SauceDemo через автоматизированное браузерное тестирование."},
+                           "3":{environment:"Playwright Chromium headless, Docker, pmi-agent",
+                                participants:"PMI-агент (автоматизированный)",
+                                test_data_desc:"standard_user/secret_sauce, тестовые имя/фамилия/индекс для checkout"}}}}')
+    SAUCE_PMI_RESP=$(api_call POST "$CATALOG_URL/api/catalog/documents" -H "$AUTH_HEADER" -d "$SAUCE_PMI_BODY")
+    SAUCE_PMI_ID=$(echo "$SAUCE_PMI_RESP" | jq -r '.id')
+    log_info "ПМИ SauceDemo создан: $SAUCE_PMI_ID"
+else
+    log_info "ПМИ SauceDemo уже существует: $SAUCE_PMI_ID"
+fi
+
 # ── Итог ──────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}╔══════════════════════════════════════════════════════════╗${NC}"
