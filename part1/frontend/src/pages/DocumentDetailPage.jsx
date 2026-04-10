@@ -624,8 +624,9 @@ function SectionField({ sectionKey, value, editing, onChange }) {
 function PmiFunctionsPanel({ projectId, docId, pmiResults, fnTasks, pmiRunTasks, onDraft, onRun }) {
   const [functions, setFunctions] = useState(null);
   const [loadError, setLoadError] = useState(null);
+  const storageKey = `pmi_target_url_${docId}`;
   const [targetUrl, setTargetUrl] = useState(
-    () => localStorage.getItem('pmi_target_url') || ''
+    () => localStorage.getItem(storageKey) || ''
   );
 
   useEffect(() => {
@@ -636,7 +637,7 @@ function PmiFunctionsPanel({ projectId, docId, pmiResults, fnTasks, pmiRunTasks,
 
   const handleUrlChange = (e) => {
     setTargetUrl(e.target.value);
-    localStorage.setItem('pmi_target_url', e.target.value);
+    localStorage.setItem(storageKey, e.target.value);
   };
 
   if (loadError) return (
