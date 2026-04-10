@@ -319,7 +319,84 @@ FN4_ID=$(create_function_if_absent "F-GEN-01" \
 
 ALL_FN_IDS=$(jq -n --arg a "$FN1_ID" --arg b "$FN2_ID" --arg c "$FN3_ID" --arg d "$FN4_ID" '[$a,$b,$c,$d]')
 
-# ── Шаг 9: ТЗ документ ────────────────────────────────────────
+# ── Шаг 9: Шаблоны документов ────────────────────────────────
+log_section "Создание системных шаблонов"
+
+# Создаём шаблон ПМИ если его нет (суперадмин = разрешено создавать системные шаблоны)
+TMPl_CHECK=$(api_call GET "$CATALOG_URL/api/catalog/templates?type=pmi" \
+    -H "$AUTH_HEADER" || echo '{"items":[]}')
+PMI_TMPL_ID=$(echo "$TMPl_CHECK" | jq -r '.items[] | select(.name=="ПМИ по ГОСТ 34.603 (демо)") | .id' | head -1)
+
+if [[ -z "$PMI_TMPL_ID" ]]; then
+    PMI_TMPL_BODY=$(cat << 'JSONEOF'
+{
+  "type": "pmi",
+  "name": "ПМИ по ГОСТ 34.603 (демо)",
+  "gost_ref": "ГОСТ 34.603-92",
+  "output_format": "docx",
+  "sections": [
+    {
+      "number": "1",
+      "title": "Объект испытаний",
+      "source": "manual",
+      "fields": [
+        {"key": "system_name",    "label": "Наименование АС",       "type": "text",     "required": true},
+        {"key": "version",        "label": "Версия",                "type": "text",     "required": false},
+        {"key": "test_basis",     "label": "Основание для испытаний","type": "textarea", "required": false}
+      ]
+    },
+    {
+      "number": "2",
+      "title": "Цель испытаний",
+      "source": "manual",
+      "fields": [
+        {"key": "goal", "label": "Цель", "type": "textarea", "required": true}
+      ]
+    },
+    {
+      "number": "3",
+      "title": "Условия проведения испытаний",
+      "source": "manual",
+      "fields": [
+        {"key": "environment",    "label": "Программно-аппаратная среда", "type": "textarea", "required": false},
+        {"key": "participants",   "label": "Участники испытаний",         "type": "textarea", "required": false},
+        {"key": "test_data_desc", "label": "Тестовые данные",             "type": "textarea", "required": false}
+      ]
+    },
+    {
+      "number": "4",
+      "title": "Перечень проверяемых функций",
+      "source": "functions"
+    },
+    {
+      "number": "5",
+      "title": "Порядок проведения испытаний",
+      "source": "manual",
+      "fields": [
+        {"key": "procedure", "label": "Порядок испытаний", "type": "textarea", "required": false}
+      ]
+    },
+    {
+      "number": "6",
+      "title": "Требования к отчётности",
+      "source": "manual",
+      "fields": [
+        {"key": "report_requirements", "label": "Требования к протоколу испытаний", "type": "textarea", "required": false}
+      ]
+    }
+  ]
+}
+JSONEOF
+)
+    PMI_TMPL_RESP=$(api_call POST "$CATALOG_URL/api/catalog/templates" \
+        -H "$AUTH_HEADER" -d "$PMI_TMPL_BODY")
+    PMI_TMPL_ID=$(echo "$PMI_TMPL_RESP" | jq -r '.id // empty' 2>/dev/null)
+    log_info "Шаблон ПМИ создан: $PMI_TMPL_ID"
+else
+    log_info "Шаблон ПМИ уже существует: $PMI_TMPL_ID"
+fi
+
+# ── Шаг 10: ТЗ документ ───────────────────────────────────────
 log_section "Создание ТЗ документа"
 
 TZ_CHECK=$(api_call GET "$CATALOG_URL/api/catalog/documents?project_id=$PROJECT_ID&type=tz&per_page=20" \
@@ -360,7 +437,7 @@ else
     log_info "ТЗ документ уже существует: $TZ_DOC_ID"
 fi
 
-# ── Шаг 10: ПМИ документ ──────────────────────────────────────
+# ── Шаг 11: ПМИ документ ──────────────────────────────────────
 log_section "Создание ПМИ документа"
 
 PMI_CHECK=$(api_call GET "$CATALOG_URL/api/catalog/documents?project_id=$PROJECT_ID&type=pmi&per_page=20" \
@@ -370,13 +447,23 @@ PMI_DOC_ID=$(echo "$PMI_CHECK" | jq -r 'if .items | length > 0 then .items[0].id
 if [[ -z "$PMI_DOC_ID" ]]; then
     PMI_BODY=$(jq -n \
         --arg pid "$PROJECT_ID" \
+        --arg tmpl "$PMI_TMPL_ID" \
         --argjson fns "$ALL_FN_IDS" \
-        '{project_id:$pid,name:"Программа и методика испытаний АС ГОСТ-ДОК",type:"pmi",function_ids:$fns,data:{}}')
+        '{project_id:$pid,name:"Программа и методика испытаний АС ГОСТ-ДОК",type:"pmi",template_id:$tmpl,function_ids:$fns,data:{sections:{"1":{system_name:"АС ГОСТ-ДОК",version:"1.0",test_basis:"Государственный контракт №123/2024"},"2":{goal:"Проверка соответствия реализованных функций требованиям ТЗ по ГОСТ 34.603-92."},"3":{environment:"Docker Compose, Ubuntu 22.04, Python 3.12, PostgreSQL 16, MongoDB 7, MinIO"}}}}')
     PMI_RESP=$(api_call POST "$CATALOG_URL/api/catalog/documents" -H "$AUTH_HEADER" -d "$PMI_BODY")
     PMI_DOC_ID=$(echo "$PMI_RESP" | jq -r '.id')
     log_info "ПМИ документ создан: $PMI_DOC_ID"
 else
-    log_info "ПМИ документ уже существует: $PMI_DOC_ID"
+    # Проверяем: если документ уже существует но без шаблона — патчим template_id
+    EXISTING_TMPL=$(echo "$PMI_CHECK" | jq -r 'if .items | length > 0 then .items[0].template_id else "" end')
+    if [[ -z "$EXISTING_TMPL" || "$EXISTING_TMPL" == "null" ]] && [[ -n "$PMI_TMPL_ID" ]]; then
+        api_call PUT "$CATALOG_URL/api/catalog/documents/$PMI_DOC_ID" \
+            -H "$AUTH_HEADER" \
+            -d "{\"template_id\":\"$PMI_TMPL_ID\"}" >/dev/null || true
+        log_info "ПМИ документ обновлён: template_id=$PMI_TMPL_ID"
+    else
+        log_info "ПМИ документ уже существует: $PMI_DOC_ID"
+    fi
 fi
 
 # ── Итог ──────────────────────────────────────────────────────

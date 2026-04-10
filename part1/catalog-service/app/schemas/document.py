@@ -14,6 +14,7 @@ class DocumentCreate(BaseModel):
 
 class DocumentUpdate(BaseModel):
     name: str | None = None
+    template_id: str | None = None
     function_ids: list[str] | None = None
     data: dict[str, Any] | None = None
 

@@ -189,9 +189,21 @@ export default function DocumentDetailPage() {
       setFnTasks((prev) => ({ ...prev, [fnId]: { status: 'failed', taskId, error: 'Превышено время ожидания' } }));
     } catch (err) {
       const detail = err?.response?.data?.detail;
+      let errorMsg;
+      if (typeof detail === 'string') {
+        errorMsg = detail;
+      } else if (Array.isArray(detail)) {
+        errorMsg = detail.map((d) => d.msg || JSON.stringify(d)).join('; ');
+      } else if (err?.response?.status === 502 || err?.response?.status === 503) {
+        errorMsg = 'PMI-агент недоступен. Убедитесь, что сервис запущен (ollama + pmi-agent).';
+      } else if (!err?.response) {
+        errorMsg = 'Нет связи с сервером. Проверьте, что все контейнеры запущены.';
+      } else {
+        errorMsg = `Ошибка ${err?.response?.status || ''}: ${JSON.stringify(detail || err?.response?.data || 'неизвестная ошибка')}`;
+      }
       setFnTasks((prev) => ({
         ...prev,
-        [fnId]: { status: 'failed', taskId: null, error: typeof detail === 'string' ? detail : 'Ошибка запроса' },
+        [fnId]: { status: 'failed', taskId: null, error: errorMsg },
       }));
     }
   };

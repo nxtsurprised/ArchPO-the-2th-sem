@@ -70,6 +70,8 @@ async def update_document(doc: Document, data: DocumentUpdate) -> Document:
     updates: dict[str, Any] = {"version": doc.version + 1, "updated_at": _now()}
     if data.name is not None:
         updates["name"] = data.name
+    if data.template_id is not None:
+        updates["template_id"] = data.template_id
     if data.function_ids is not None:
         updates["function_ids"] = data.function_ids
     if data.data is not None:
