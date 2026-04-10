@@ -212,22 +212,34 @@ fi
 # ── Шаг 6: Создание пользователей ────────────────────────────
 log_section "Создание пользователей"
 
-# Получаем список пользователей один раз
-USERS_LIST=$(api_call GET "$AUTH_URL/api/auth/users?per_page=200" -H "$AUTH_HEADER" || echo '{"items":[]}')
+# Получаем список пользователей один раз (max per_page = 100)
+USERS_LIST=$(api_call GET "$AUTH_URL/api/auth/users?per_page=100" -H "$AUTH_HEADER" || echo '{"items":[]}')
 
 create_user_if_absent() {
     local email="$1" full_name="$2" position="$3" org_id="$4"
     local user_id
 
+    # Ищем в уже загруженном списке
     user_id=$(echo "$USERS_LIST" | jq -r --arg e "$email" '.items[] | select(.email==$e) | .id' | head -1)
 
     if [[ -z "$user_id" ]]; then
-        local create_resp
+        local create_resp http_status
+        # Пробуем создать
         create_resp=$(api_call POST "$AUTH_URL/api/auth/users" \
             -H "$AUTH_HEADER" \
-            -d "{\"email\":\"$email\",\"password\":\"$DEMO_PASSWORD\",\"full_name\":\"$full_name\",\"position\":\"$position\",\"organization_id\":\"$org_id\"}")
-        user_id=$(echo "$create_resp" | jq -r '.id')
-        log_info "Пользователь создан: $email ($user_id)"
+            -d "{\"email\":\"$email\",\"password\":\"$DEMO_PASSWORD\",\"full_name\":\"$full_name\",\"position\":\"$position\",\"organization_id\":\"$org_id\"}") || true
+
+        user_id=$(echo "$create_resp" | jq -r '.id // empty' 2>/dev/null)
+
+        if [[ -z "$user_id" ]]; then
+            # Пользователь уже существует (409) — ищем по email через повторный запрос
+            local fresh
+            fresh=$(api_call GET "$AUTH_URL/api/auth/users?per_page=100" -H "$AUTH_HEADER" || echo '{"items":[]}')
+            user_id=$(echo "$fresh" | jq -r --arg e "$email" '.items[] | select(.email==$e) | .id' | head -1)
+            log_info "Пользователь уже существует: $email ($user_id)"
+        else
+            log_info "Пользователь создан: $email ($user_id)"
+        fi
     else
         log_info "Пользователь уже существует: $email ($user_id)"
     fi
@@ -253,19 +265,13 @@ assign_role "$PM_CUST_ID"  "pm"
 assign_role "$PM_CONTR_ID" "pm"
 assign_role "$ANALYST_ID"  "analyst"
 
-# Логинимся как pm_contractor для работы с каталогом
-PM_TOKEN_RESP=$(api_call POST "$AUTH_URL/api/auth/login" \
-    -d "{\"email\":\"pm_contractor@demo.local\",\"password\":\"$DEMO_PASSWORD\"}")
-PM_TOKEN=$(echo "$PM_TOKEN_RESP" | jq -r '.access_token // empty')
-[[ -z "$PM_TOKEN" ]] && log_error "Не удалось получить токен pm_contractor"
-PM_AUTH="Authorization: Bearer $PM_TOKEN"
-
 # ── Шаг 8: Создание функций ───────────────────────────────────
 log_section "Создание функций в справочнике"
 
+# Используем суперадмина — он проходит require_project_role для любого проекта
 # Получаем список функций один раз
 FN_LIST=$(api_call GET "$CATALOG_URL/api/catalog/functions?project_id=$PROJECT_ID&per_page=100" \
-    -H "$PM_AUTH" || echo '{"items":[]}')
+    -H "$AUTH_HEADER" || echo '{"items":[]}')
 
 create_function_if_absent() {
     local code="$1" name="$2" description="$3" criteria="$4"
@@ -282,8 +288,8 @@ create_function_if_absent() {
             --arg desc "$description" \
             --argjson crit "$criteria" \
             '{project_id:$pid,code:$code,name:$name,description:$desc,category:"main",priority:"high",complexity:"medium",test_params:{approach:"automated",criteria:$crit}}')
-        create_resp=$(api_call POST "$CATALOG_URL/api/catalog/functions" -H "$PM_AUTH" -d "$body")
-        fn_id=$(echo "$create_resp" | jq -r '.id')
+        create_resp=$(api_call POST "$CATALOG_URL/api/catalog/functions" -H "$AUTH_HEADER" -d "$body")
+        fn_id=$(echo "$create_resp" | jq -r '.id // empty' 2>/dev/null)
         log_info "Функция создана: $code ($fn_id)"
     else
         log_info "Функция уже существует: $code ($fn_id)"
@@ -317,7 +323,7 @@ ALL_FN_IDS=$(jq -n --arg a "$FN1_ID" --arg b "$FN2_ID" --arg c "$FN3_ID" --arg d
 log_section "Создание ТЗ документа"
 
 TZ_CHECK=$(api_call GET "$CATALOG_URL/api/catalog/documents?project_id=$PROJECT_ID&type=tz&per_page=20" \
-    -H "$PM_AUTH" || echo '{"items":[]}')
+    -H "$AUTH_HEADER" || echo '{"items":[]}')
 TZ_DOC_ID=$(echo "$TZ_CHECK" | jq -r 'if .items | length > 0 then .items[0].id else "" end')
 
 if [[ -z "$TZ_DOC_ID" ]]; then
@@ -347,7 +353,7 @@ if [[ -z "$TZ_DOC_ID" ]]; then
                 }
             }
         }')
-    TZ_RESP=$(api_call POST "$CATALOG_URL/api/catalog/documents" -H "$PM_AUTH" -d "$TZ_BODY")
+    TZ_RESP=$(api_call POST "$CATALOG_URL/api/catalog/documents" -H "$AUTH_HEADER" -d "$TZ_BODY")
     TZ_DOC_ID=$(echo "$TZ_RESP" | jq -r '.id')
     log_info "ТЗ документ создан: $TZ_DOC_ID"
 else
@@ -358,7 +364,7 @@ fi
 log_section "Создание ПМИ документа"
 
 PMI_CHECK=$(api_call GET "$CATALOG_URL/api/catalog/documents?project_id=$PROJECT_ID&type=pmi&per_page=20" \
-    -H "$PM_AUTH" || echo '{"items":[]}')
+    -H "$AUTH_HEADER" || echo '{"items":[]}')
 PMI_DOC_ID=$(echo "$PMI_CHECK" | jq -r 'if .items | length > 0 then .items[0].id else "" end')
 
 if [[ -z "$PMI_DOC_ID" ]]; then
@@ -366,7 +372,7 @@ if [[ -z "$PMI_DOC_ID" ]]; then
         --arg pid "$PROJECT_ID" \
         --argjson fns "$ALL_FN_IDS" \
         '{project_id:$pid,name:"Программа и методика испытаний АС ГОСТ-ДОК",type:"pmi",function_ids:$fns,data:{}}')
-    PMI_RESP=$(api_call POST "$CATALOG_URL/api/catalog/documents" -H "$PM_AUTH" -d "$PMI_BODY")
+    PMI_RESP=$(api_call POST "$CATALOG_URL/api/catalog/documents" -H "$AUTH_HEADER" -d "$PMI_BODY")
     PMI_DOC_ID=$(echo "$PMI_RESP" | jq -r '.id')
     log_info "ПМИ документ создан: $PMI_DOC_ID"
 else
