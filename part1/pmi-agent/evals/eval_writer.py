@@ -58,6 +58,7 @@ def _make_writer_state(step_results: list[dict], draft_mode: bool = False) -> di
         "iteration_count": len(step_results),
         "rag_context": None,
         "draft_mode": draft_mode,
+        "tz_context": None,
     }
 
 

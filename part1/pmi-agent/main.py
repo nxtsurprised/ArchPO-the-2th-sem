@@ -14,7 +14,7 @@ from starlette.responses import Response
 from config import settings
 from memory.knowledge_loader import KnowledgeLoader
 from orchestrator import run_pmi_pipeline, run_draft_pipeline
-from services.catalog_client import get_project_functions, save_pmi_results
+from services.catalog_client import get_project_functions, save_pmi_results, get_tz_context
 
 # ─── Настройка логирования ────────────────────────────────────────────────
 structlog.configure(
@@ -239,214 +239,86 @@ async def list_tasks():
     ]
 
 
-# ─── Document-level task storage ────────────────────────────────────────
-_doc_tasks: dict[str, dict] = {}
+# ─── Per-function task storage ───────────────────────────────────────────────
+_fn_tasks: dict[str, dict] = {}
 
 
-class RunForDocumentRequest(BaseModel):
-    document_id: str = Field(..., description="ID документа ПМИ из catalog-service")
-    project_id: str = Field(..., description="ID проекта — для выборки функций")
-    target_url: str = Field(default="", description="URL фронтенда. Пустой → TARGET_APP_URL из .env")
+class DraftFunctionRequest(BaseModel):
+    document_id: str = Field(..., description="ID документа ПМИ")
+    project_id: str = Field(..., description="ID проекта")
+    function_id: str = Field(..., description="ID функции из справочника")
+    function_name: str = Field(..., description="Название функции")
+    function_description: str = Field(default="", description="Описание функции")
+    acceptance_criteria: list[str] = Field(default_factory=list)
 
 
-class RunForDocumentResponse(BaseModel):
+class DraftFunctionResponse(BaseModel):
     task_id: str
     status: str
-    functions_count: int
     message: str
 
 
-async def _run_all_functions(
-    task_id: str,
-    document_id: str,
-    project_id: str,
-    functions: list[dict],
-    target_url: str,
-) -> None:
-    """Run PMI pipeline for every function, then write results back to catalog."""
-    _doc_tasks[task_id]["status"] = "running"
-    results: dict[str, dict] = {}
+async def _draft_one_function(task_id: str, request: DraftFunctionRequest) -> None:
+    """Составить методику ПМИ для одной функции и сохранить в документ."""
+    _fn_tasks[task_id]["status"] = "running"
     start = time.time()
 
-    for fn in functions:
-        fn_id = fn["id"]
-        try:
-            result = await run_pmi_pipeline(
-                function_id=fn_id,
-                function_name=fn["name"],
-                function_description=fn.get("description") or fn["name"],
-                acceptance_criteria=fn.get("acceptance_criteria", []),
-                project_id=project_id,
-                target_url=target_url,
-            )
-            results[fn_id] = result.get("pmi_section") or {}
-            logger.info("function_tested", task_id=task_id, function_id=fn_id,
-                        verdict=(results[fn_id] or {}).get("verdict"))
-        except Exception as exc:
-            logger.error("function_test_failed", task_id=task_id, function_id=fn_id, error=str(exc))
-            results[fn_id] = {"error": str(exc), "verdict": "не соответствует"}
-
-    # Write all results back to catalog
     try:
-        await save_pmi_results(document_id, results)
-        _doc_tasks[task_id].update({"status": "done", "results": results})
+        tz_context = await get_tz_context(request.project_id)
+
+        result = await run_draft_pipeline(
+            function_id=request.function_id,
+            function_name=request.function_name,
+            function_description=request.function_description or request.function_name,
+            acceptance_criteria=request.acceptance_criteria,
+            project_id=request.project_id,
+            tz_context=tz_context,
+        )
+
+        section = result.get("pmi_section") or {}
+        await save_pmi_results(request.document_id, {request.function_id: section})
+
+        _fn_tasks[task_id].update({
+            "status": "done",
+            "pmi_section": section,
+            "duration_sec": round(time.time() - start, 1),
+        })
+        logger.info("fn_drafted", task_id=task_id, function_id=request.function_id,
+                    duration=_fn_tasks[task_id]["duration_sec"])
+
     except Exception as exc:
-        _doc_tasks[task_id].update({"status": "failed", "error": f"Ошибка записи результатов: {exc}"})
-
-    pmi_duration.observe(time.time() - start)
-    logger.info("document_task_completed", task_id=task_id, document_id=document_id,
-                functions=len(results), duration=round(time.time() - start, 1))
+        _fn_tasks[task_id].update({"status": "failed", "error": str(exc)})
+        logger.error("fn_draft_failed", task_id=task_id,
+                     function_id=request.function_id, error=str(exc))
 
 
-@app.post("/api/v1/pmi/run-for-document", response_model=RunForDocumentResponse, status_code=202)
-async def run_for_document(request: RunForDocumentRequest, background_tasks: BackgroundTasks):
+@app.post("/api/v1/pmi/draft-function", response_model=DraftFunctionResponse, status_code=202)
+async def draft_function(request: DraftFunctionRequest, background_tasks: BackgroundTasks):
     """
-    Запустить PMI-агент для всех функций проекта и записать результаты в документ.
-    Возвращает task_id для отслеживания статуса через GET /api/v1/pmi/doc-tasks/{task_id}.
+    Составить методику ПМИ для одной функции без запуска тестов.
+    Результат немедленно сохраняется в документ (мёрж в pmi_results).
     """
-    # Fetch functions from catalog
-    try:
-        functions = await get_project_functions(request.project_id)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Не удалось получить функции из каталога: {exc}")
-
-    if not functions:
-        raise HTTPException(status_code=422, detail="В проекте нет функций для тестирования")
-
     task_id = str(uuid.uuid4())
-    target_url = request.target_url or settings.target_app_url
-
-    _doc_tasks[task_id] = {
+    _fn_tasks[task_id] = {
         "status": "pending",
+        "function_id": request.function_id,
         "document_id": request.document_id,
-        "project_id": request.project_id,
-        "functions_count": len(functions),
-        "results": {},
+        "pmi_section": None,
         "error": None,
     }
-
-    background_tasks.add_task(
-        _run_all_functions, task_id, request.document_id, request.project_id, functions, target_url
-    )
-
-    logger.info("doc_task_created", task_id=task_id, document_id=request.document_id,
-                functions=len(functions))
-
-    return RunForDocumentResponse(
+    background_tasks.add_task(_draft_one_function, task_id, request)
+    logger.info("fn_task_created", task_id=task_id, function_id=request.function_id)
+    return DraftFunctionResponse(
         task_id=task_id,
         status="pending",
-        functions_count=len(functions),
-        message=f"Запущено тестирование {len(functions)} функций",
+        message=f"Составление ПМИ для функции {request.function_id} запущено",
     )
 
 
-@app.get("/api/v1/pmi/doc-tasks/{task_id}")
-async def get_doc_task_status(task_id: str):
-    """Статус задачи тестирования документа."""
-    task = _doc_tasks.get(task_id)
-    if not task:
-        raise HTTPException(status_code=404, detail="Задача не найдена")
-    return task
-
-
-# ─── Draft-level task storage ────────────────────────────────────────────
-_draft_tasks: dict[str, dict] = {}
-
-
-class DraftForDocumentRequest(BaseModel):
-    document_id: str = Field(..., description="ID документа ПМИ из catalog-service")
-    project_id: str = Field(..., description="ID проекта — для выборки функций")
-
-
-class DraftForDocumentResponse(BaseModel):
-    task_id: str
-    status: str
-    functions_count: int
-    message: str
-
-
-async def _draft_all_functions(
-    task_id: str,
-    document_id: str,
-    project_id: str,
-    functions: list[dict],
-) -> None:
-    """Запускает черновой пайплайн для каждой функции и сохраняет методику в документ."""
-    _draft_tasks[task_id]["status"] = "running"
-    results: dict[str, dict] = {}
-    start = time.time()
-
-    for fn in functions:
-        fn_id = fn["id"]
-        try:
-            result = await run_draft_pipeline(
-                function_id=fn_id,
-                function_name=fn["name"],
-                function_description=fn.get("description") or fn["name"],
-                acceptance_criteria=fn.get("acceptance_criteria", []),
-                project_id=project_id,
-            )
-            results[fn_id] = result.get("pmi_section") or {}
-            logger.info("function_drafted", task_id=task_id, function_id=fn_id)
-        except Exception as exc:
-            logger.error("function_draft_failed", task_id=task_id, function_id=fn_id, error=str(exc))
-            results[fn_id] = {"error": str(exc), "verdict": "испытание не проводилось"}
-
-    try:
-        await save_pmi_results(document_id, results)
-        _draft_tasks[task_id].update({"status": "done", "results": results})
-    except Exception as exc:
-        _draft_tasks[task_id].update({"status": "failed", "error": f"Ошибка записи методики: {exc}"})
-
-    logger.info("draft_task_completed", task_id=task_id, document_id=document_id,
-                functions=len(results), duration=round(time.time() - start, 1))
-
-
-@app.post("/api/v1/pmi/draft-for-document", response_model=DraftForDocumentResponse, status_code=202)
-async def draft_for_document(request: DraftForDocumentRequest, background_tasks: BackgroundTasks):
-    """
-    Составить методику ПМИ для всех функций проекта без запуска тестов.
-    Плановщик формирует сценарии, Протоколист пишет методику.
-    Результат сохраняется в документ (verdict = 'испытание не проводилось').
-    """
-    try:
-        functions = await get_project_functions(request.project_id)
-    except Exception as exc:
-        raise HTTPException(status_code=502, detail=f"Не удалось получить функции из каталога: {exc}")
-
-    if not functions:
-        raise HTTPException(status_code=422, detail="В проекте нет функций для составления ПМИ")
-
-    task_id = str(uuid.uuid4())
-
-    _draft_tasks[task_id] = {
-        "status": "pending",
-        "document_id": request.document_id,
-        "project_id": request.project_id,
-        "functions_count": len(functions),
-        "results": {},
-        "error": None,
-    }
-
-    background_tasks.add_task(
-        _draft_all_functions, task_id, request.document_id, request.project_id, functions
-    )
-
-    logger.info("draft_task_created", task_id=task_id, document_id=request.document_id,
-                functions=len(functions))
-
-    return DraftForDocumentResponse(
-        task_id=task_id,
-        status="pending",
-        functions_count=len(functions),
-        message=f"Составление методики ПМИ для {len(functions)} функций запущено",
-    )
-
-
-@app.get("/api/v1/pmi/draft-tasks/{task_id}")
-async def get_draft_task_status(task_id: str):
-    """Статус задачи составления методики ПМИ."""
-    task = _draft_tasks.get(task_id)
+@app.get("/api/v1/pmi/function-tasks/{task_id}")
+async def get_function_task(task_id: str):
+    """Статус задачи для одной функции."""
+    task = _fn_tasks.get(task_id)
     if not task:
         raise HTTPException(status_code=404, detail="Задача не найдена")
     return task

@@ -11,6 +11,7 @@ logger = structlog.get_logger(__name__)
 
 _HEADERS = {"X-Internal-Secret": settings.internal_api_secret}
 _TIMEOUT = 15.0
+_TZ_CONTEXT_MAX_CHARS = 3000  # ~750 токенов — комфортно для Mistral 7B
 
 
 async def get_project_functions(project_id: str) -> list[dict]:
@@ -24,6 +25,30 @@ async def get_project_functions(project_id: str) -> list[dict]:
     except Exception as exc:
         logger.error("catalog_get_functions_failed", project_id=project_id, error=str(exc))
         raise
+
+
+async def get_tz_context(project_id: str) -> str:
+    """
+    Получить текстовый контекст из ТЗ/ЧТЗ проекта.
+    Возвращает пустую строку если документов нет или они пустые.
+    """
+    url = f"{settings.catalog_service_url}/internal/tz-context"
+    try:
+        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+            resp = await client.get(url, params={"project_id": project_id}, headers=_HEADERS)
+            resp.raise_for_status()
+            data = resp.json()
+            ctx = data.get("context", "")
+            docs = data.get("documents", [])
+            if len(ctx) > _TZ_CONTEXT_MAX_CHARS:
+                ctx = ctx[:_TZ_CONTEXT_MAX_CHARS] + "\n[...контекст усечён]"
+            logger.info("tz_context_loaded", project_id=project_id,
+                        chars=len(ctx), documents=[d["name"] for d in docs])
+            return ctx
+    except Exception as exc:
+        # Не прерываем работу агента если контекст недоступен
+        logger.warning("tz_context_failed", project_id=project_id, error=str(exc))
+        return ""
 
 
 async def save_pmi_results(document_id: str, sections: dict[str, Any]) -> None:

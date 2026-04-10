@@ -78,6 +78,7 @@ async def live_eval_plan(case: EvalCase) -> PlannerEvalResult:
         "iteration_count": 0,
         "rag_context": None,
         "draft_mode": False,
+        "tz_context": None,
     }
 
     try:

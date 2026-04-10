@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.api.deps import verify_internal_secret
 from app.models.audit import AuditLog
-from app.services.document_service import get_document, get_render_bundle
+from app.services.document_service import get_document, get_render_bundle, list_documents
 from app.services.function_service import list_functions
 
 router = APIRouter(tags=["internal"])
@@ -62,10 +62,72 @@ async def save_pmi_results(doc_id: str, body: PMIResultsRequest):
 
     existing_data = doc.data or {}
     existing_sections = existing_data.get("sections", {})
-    existing_sections.update({"pmi_results": body.sections})
+    # Мержим в существующие результаты — чтобы повторный вызов для одной функции
+    # не затирал уже сохранённые результаты других функций
+    existing_pmi = existing_sections.get("pmi_results", {})
+    existing_pmi.update(body.sections)
+    existing_sections["pmi_results"] = existing_pmi
     doc.data = {**existing_data, "sections": existing_sections}
     await doc.save()
-    return {"ok": True}
+    return {"ok": True, "saved_functions": list(body.sections.keys())}
+
+
+@router.get(
+    "/internal/tz-context",
+    dependencies=[Depends(verify_internal_secret)],
+)
+async def get_tz_context(project_id: str = Query(...)):
+    """
+    Возвращает текстовый контекст из ТЗ и ЧТЗ проекта для PMI-агента.
+    Ищет утверждённые документы, при отсутствии — берёт последние черновики.
+    Возвращает секции в виде читаемого текста.
+    """
+    # Ищем ТЗ и ЧТЗ документы проекта
+    docs, _ = await list_documents(project_id=project_id, per_page=100)
+    tz_docs = [d for d in docs if d.type in ("tz", "chtz")]
+
+    if not tz_docs:
+        return {"context": "", "documents": []}
+
+    # Приоритет: approved → revision → pending → draft
+    STATUS_PRIORITY = {"approved": 0, "revision": 1, "pending": 2, "draft": 3, "rejected": 4}
+    tz_docs.sort(key=lambda d: (STATUS_PRIORITY.get(d.status, 9), d.type != "tz"))
+
+    context_parts: list[str] = []
+    doc_refs: list[dict] = []
+
+    for doc in tz_docs:
+        sections = (doc.data or {}).get("sections", {})
+        if not sections:
+            continue
+
+        type_label = "Техническое задание" if doc.type == "tz" else "Частное техническое задание"
+        status_label = f"статус: {doc.status}"
+        header = f"=== {type_label}: «{doc.name}» ({status_label}) ==="
+        content_lines = [header]
+
+        for section_key, section_value in sections.items():
+            if not section_value:
+                continue
+            # Вложенные поля (dict) — разворачиваем
+            if isinstance(section_value, dict):
+                for field_key, field_value in section_value.items():
+                    if field_value:
+                        content_lines.append(f"[{section_key}.{field_key}]: {field_value}")
+            elif isinstance(section_value, list):
+                if section_value:
+                    content_lines.append(f"[{section_key}]: {'; '.join(str(v) for v in section_value)}")
+            else:
+                content_lines.append(f"[{section_key}]: {section_value}")
+
+        if len(content_lines) > 1:  # есть содержимое кроме заголовка
+            context_parts.append("\n".join(content_lines))
+            doc_refs.append({"id": doc.id, "type": doc.type, "name": doc.name, "status": doc.status})
+
+    return {
+        "context": "\n\n".join(context_parts),
+        "documents": doc_refs,
+    }
 
 
 @router.get(

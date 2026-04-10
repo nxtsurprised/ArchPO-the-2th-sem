@@ -37,3 +37,4 @@ class PMIAgentState(TypedDict):
     iteration_count: int          # Защита от бесконечных циклов
     rag_context: str | None       # RAG-контекст, подготовленный для текущего узла
     draft_mode: bool              # True → только план+методика, без запуска Playwright
+    tz_context: str | None        # Содержимое ТЗ/ЧТЗ проекта для обогащения планировщика

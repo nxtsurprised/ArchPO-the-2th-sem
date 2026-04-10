@@ -105,6 +105,7 @@ async def run_single_case(case: EvalCase, use_mock_executor: bool = True) -> dic
         "iteration_count": 0,
         "rag_context": None,
         "draft_mode": False,
+        "tz_context": None,
     }
 
     run_result = {

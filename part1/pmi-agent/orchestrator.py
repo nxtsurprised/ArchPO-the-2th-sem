@@ -152,6 +152,7 @@ async def run_draft_pipeline(
     function_description: str,
     acceptance_criteria: list[str],
     project_id: str,
+    tz_context: str = "",
 ) -> dict:
     """
     Запускает черновой пайплайн: план → методика (без Playwright).
@@ -175,9 +176,11 @@ async def run_draft_pipeline(
         "iteration_count": 0,
         "rag_context": None,
         "draft_mode": True,
+        "tz_context": tz_context,
     }
 
-    logger.info("draft_pipeline_start", function_id=function_id)
+    logger.info("draft_pipeline_start", function_id=function_id,
+                has_tz_context=bool(tz_context))
 
     final_state = await _draft_graph.ainvoke(initial_state)
 
@@ -202,6 +205,7 @@ async def run_pmi_pipeline(
     acceptance_criteria: list[str],
     project_id: str,
     target_url: str,
+    tz_context: str = "",
 ) -> dict:
     """
     Запускает полный пайплайн PMI для одной функции системы.
@@ -220,7 +224,6 @@ async def run_pmi_pipeline(
         "acceptance_criteria": acceptance_criteria,
         "project_id": project_id,
         "target_url": target_url,
-        # Поля, заполняемые агентами
         "test_plan": None,
         "current_step": 0,
         "step_results": [],
@@ -229,9 +232,12 @@ async def run_pmi_pipeline(
         "error": None,
         "iteration_count": 0,
         "rag_context": None,
+        "draft_mode": False,
+        "tz_context": tz_context,
     }
 
-    logger.info("pmi_pipeline_start", function_id=function_id)
+    logger.info("pmi_pipeline_start", function_id=function_id,
+                has_tz_context=bool(tz_context))
 
     final_state = await _graph.ainvoke(initial_state)
 

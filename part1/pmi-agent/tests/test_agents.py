@@ -151,6 +151,8 @@ class TestOrchestrator:
             "error": None,
             "iteration_count": 0,
             "rag_context": None,
+            "draft_mode": False,
+            "tz_context": None,
         }
 
         result = await planner_node(state)
@@ -201,6 +203,8 @@ class TestWriterFallback:
             "error": None,
             "iteration_count": 0,
             "rag_context": None,
+            "draft_mode": False,
+            "tz_context": None,
         }
 
         result = await writer_node(state)

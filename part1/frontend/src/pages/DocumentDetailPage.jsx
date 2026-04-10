@@ -43,15 +43,8 @@ export default function DocumentDetailPage() {
   const [generateError, setGenerateError] = useState('');
   const [downloadUrl, setDownloadUrl] = useState(null);
 
-  const [pmiRunning, setPmiRunning] = useState(false);
-  const [pmiTaskId, setPmiTaskId] = useState(null);
-  const [pmiStatus, setPmiStatus] = useState(null); // pending | running | done | failed
-  const [pmiError, setPmiError] = useState('');
-
-  const [draftRunning, setDraftRunning] = useState(false);
-  const [draftTaskId, setDraftTaskId] = useState(null);
-  const [draftStatus, setDraftStatus] = useState(null);
-  const [draftError, setDraftError] = useState('');
+  // fnTasks: { [functionId]: { taskId, status, error } }
+  const [fnTasks, setFnTasks] = useState({});
 
   const roleInfo = getRoleForProject(projectId);
   const userRole = roleInfo?.role;
@@ -171,74 +164,35 @@ export default function DocumentDetailPage() {
     }
   };
 
-  const handleDraftPmi = async () => {
-    setDraftRunning(true);
-    setDraftError('');
-    setDraftStatus('pending');
-    setDraftTaskId(null);
+  const handleDraftFunction = async (fn) => {
+    const fnId = fn.id;
+    setFnTasks((prev) => ({ ...prev, [fnId]: { status: 'running', taskId: null, error: null } }));
     try {
-      const res = await pmiApi.draftForDocument(docId, projectId);
+      const res = await pmiApi.draftFunction(docId, projectId, fn);
       const taskId = res.data.task_id;
-      setDraftTaskId(taskId);
-      setDraftStatus('running');
+      setFnTasks((prev) => ({ ...prev, [fnId]: { status: 'running', taskId, error: null } }));
 
-      // Polling до завершения (макс 5 минут — черновик быстрее)
       for (let i = 0; i < 60; i++) {
         await new Promise((r) => setTimeout(r, 5000));
-        const statusRes = await pmiApi.getDraftTask(taskId);
+        const statusRes = await pmiApi.getFunctionTask(taskId);
         const task = statusRes.data;
-        setDraftStatus(task.status);
         if (task.status === 'done') {
+          setFnTasks((prev) => ({ ...prev, [fnId]: { status: 'done', taskId, error: null } }));
           await load();
-          break;
+          return;
         }
         if (task.status === 'failed') {
-          setDraftError(task.error || 'Ошибка при составлении методики');
-          break;
+          setFnTasks((prev) => ({ ...prev, [fnId]: { status: 'failed', taskId, error: task.error } }));
+          return;
         }
       }
+      setFnTasks((prev) => ({ ...prev, [fnId]: { status: 'failed', taskId, error: 'Превышено время ожидания' } }));
     } catch (err) {
       const detail = err?.response?.data?.detail;
-      setDraftError(typeof detail === 'string' ? detail : 'Ошибка запуска составления ПМИ');
-      setDraftStatus('failed');
-    } finally {
-      setDraftRunning(false);
-    }
-  };
-
-  const handleRunPmi = async () => {
-    setPmiRunning(true);
-    setPmiError('');
-    setPmiStatus('pending');
-    setPmiTaskId(null);
-    try {
-      // target_url намеренно не передаём — сервис использует TARGET_APP_URL из env (http://nginx:80)
-      const res = await pmiApi.runForDocument(docId, projectId, '');
-      const taskId = res.data.task_id;
-      setPmiTaskId(taskId);
-      setPmiStatus('running');
-
-      // Polling до завершения (макс 10 минут)
-      for (let i = 0; i < 120; i++) {
-        await new Promise((r) => setTimeout(r, 5000));
-        const statusRes = await pmiApi.getDocTask(taskId);
-        const task = statusRes.data;
-        setPmiStatus(task.status);
-        if (task.status === 'completed') {
-          await load(); // перезагружаем документ — секция pmi_results обновилась
-          break;
-        }
-        if (task.status === 'failed') {
-          setPmiError(task.error || 'Агент завершился с ошибкой');
-          break;
-        }
-      }
-    } catch (err) {
-      const detail = err?.response?.data?.detail;
-      setPmiError(typeof detail === 'string' ? detail : 'Ошибка запуска ПМИ-агента');
-      setPmiStatus('failed');
-    } finally {
-      setPmiRunning(false);
+      setFnTasks((prev) => ({
+        ...prev,
+        [fnId]: { status: 'failed', taskId: null, error: typeof detail === 'string' ? detail : 'Ошибка запроса' },
+      }));
     }
   };
 
@@ -316,26 +270,6 @@ export default function DocumentDetailPage() {
           <button className="btn btn-secondary" onClick={handleGenerate} disabled={generating}>
             {generating ? 'Генерация...' : 'Сгенерировать файл'}
           </button>
-          {doc.type === 'pmi' && (
-            <button
-              className="btn btn-secondary"
-              onClick={handleDraftPmi}
-              disabled={draftRunning || pmiRunning}
-              title="Сформировать методику испытания без запуска тестов"
-            >
-              {draftRunning ? 'Составление...' : 'Составить ПМИ'}
-            </button>
-          )}
-          {doc.type === 'pmi' && (
-            <button
-              className="btn btn-primary"
-              onClick={handleRunPmi}
-              disabled={pmiRunning || draftRunning}
-              title="Запустить тесты через Playwright и зафиксировать фактические результаты"
-            >
-              {pmiRunning ? 'Запуск ПМИ...' : 'Запустить ПМИ-агент'}
-            </button>
-          )}
         </div>
       </div>
 
@@ -352,30 +286,6 @@ export default function DocumentDetailPage() {
       )}
       {saveError && <div className="mb-16"><ErrorMessage error={saveError} /></div>}
       {generateError && <div className="mb-16"><ErrorMessage error={formatGenerateError(generateError)} /></div>}
-      {pmiStatus === 'running' && (
-        <div style={{ background: '#fefce8', border: '1px solid #fde68a', borderRadius: 6, padding: '10px 14px', fontSize: 13, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Spinner />
-          <span>ПМИ-агент выполняет тесты... Это может занять несколько минут. Задача: <span style={{ fontFamily: 'monospace' }}>{pmiTaskId}</span></span>
-        </div>
-      )}
-      {pmiStatus === 'completed' && !pmiRunning && (
-        <div style={{ background: 'var(--status-approved-bg)', border: '1px solid #bbf7d0', borderRadius: 6, padding: '10px 14px', color: 'var(--status-approved)', fontSize: 13, marginBottom: 16 }}>
-          ПМИ-агент завершил работу. Результаты сохранены в документе.
-        </div>
-      )}
-      {pmiError && <div className="mb-16"><ErrorMessage error={pmiError} /></div>}
-      {draftStatus === 'running' && (
-        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 6, padding: '10px 14px', fontSize: 13, marginBottom: 16, display: 'flex', alignItems: 'center', gap: 8 }}>
-          <Spinner />
-          <span>Агент составляет методику ПМИ... Задача: <span style={{ fontFamily: 'monospace' }}>{draftTaskId}</span></span>
-        </div>
-      )}
-      {draftStatus === 'done' && !draftRunning && (
-        <div style={{ background: 'var(--status-approved-bg)', border: '1px solid #bbf7d0', borderRadius: 6, padding: '10px 14px', color: 'var(--status-approved)', fontSize: 13, marginBottom: 16 }}>
-          Методика ПМИ составлена. Сценарии и ожидаемые результаты сохранены в документе.
-        </div>
-      )}
-      {draftError && <div className="mb-16"><ErrorMessage error={draftError} /></div>}
 
       {downloadUrl && (
         <div style={{ background: 'var(--color-primary-light)', border: '1px solid #bfdbfe', borderRadius: 6, padding: '10px 14px', fontSize: 13, marginBottom: 16 }}>
@@ -451,6 +361,17 @@ export default function DocumentDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* PMI agent panel — только для документов типа pmi */}
+      {doc.type === 'pmi' && (
+        <PmiFunctionsPanel
+          projectId={projectId}
+          docId={docId}
+          pmiResults={(doc.data?.sections?.pmi_results) || {}}
+          fnTasks={fnTasks}
+          onDraft={handleDraftFunction}
+        />
       )}
 
       {/* Footer info */}
@@ -632,6 +553,155 @@ function SectionField({ sectionKey, value, editing, onChange }) {
       >
         {displayValue || 'Не заполнено'}
       </div>
+    </div>
+  );
+}
+
+// ─── PMI Functions Panel ──────────────────────────────────────────────────────
+
+function PmiFunctionsPanel({ projectId, docId, pmiResults, fnTasks, onDraft }) {
+  const [functions, setFunctions] = useState(null);
+  const [loadError, setLoadError] = useState(null);
+
+  useEffect(() => {
+    catalogApi.getFunctions({ project_id: projectId, per_page: 100 })
+      .then((res) => setFunctions(res.data.items || []))
+      .catch(() => setLoadError('Не удалось загрузить список функций'));
+  }, [projectId]);
+
+  if (loadError) return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <div style={{ color: 'var(--color-danger)', fontSize: 13 }}>{loadError}</div>
+    </div>
+  );
+
+  if (!functions) return null;
+
+  if (functions.length === 0) return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <h2 className="section-title" style={{ margin: '0 0 8px' }}>ПМИ-агент</h2>
+      <div style={{ fontSize: 13, color: 'var(--color-text-secondary)' }}>
+        В проекте нет функций. Добавьте функции в справочник, чтобы составить методику испытаний.
+      </div>
+    </div>
+  );
+
+  return (
+    <div className="card" style={{ marginTop: 16 }}>
+      <h2 className="section-title" style={{ margin: '0 0 4px' }}>ПМИ-агент</h2>
+      <p style={{ fontSize: 13, color: 'var(--color-text-secondary)', marginBottom: 16 }}>
+        Выберите функцию и нажмите «Составить» — агент сформирует методику испытания на основе описания и содержимого ТЗ/ЧТЗ.
+      </p>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        {functions.map((fn) => (
+          <PmiFunctionRow
+            key={fn.id}
+            fn={fn}
+            result={pmiResults[fn.id] || null}
+            task={fnTasks[fn.id] || null}
+            onDraft={() => onDraft(fn)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PmiFunctionRow({ fn, result, task, onDraft }) {
+  const [expanded, setExpanded] = useState(false);
+  const isRunning = task?.status === 'running';
+  const isDone = task?.status === 'done' || result;
+  const isFailed = task?.status === 'failed';
+
+  const verdict = result?.verdict;
+  const verdictColor = verdict === 'соответствует'
+    ? 'var(--status-approved)'
+    : verdict === 'не соответствует'
+      ? 'var(--color-danger)'
+      : 'var(--color-text-secondary)';
+
+  return (
+    <div style={{ border: '1px solid var(--color-border)', borderRadius: 6, overflow: 'hidden' }}>
+      <div style={{
+        display: 'flex', alignItems: 'center', gap: 10, padding: '10px 14px',
+        background: 'var(--color-bg)',
+      }}>
+        <div style={{ flex: 1, minWidth: 0 }}>
+          <span style={{ fontWeight: 500, fontSize: 14 }}>{fn.code} — {fn.name}</span>
+          {verdict && (
+            <span style={{ marginLeft: 10, fontSize: 12, color: verdictColor, fontWeight: 500 }}>
+              {verdict}
+            </span>
+          )}
+        </div>
+        {result && (
+          <button
+            className="btn btn-secondary btn-sm"
+            onClick={() => setExpanded((v) => !v)}
+          >
+            {expanded ? 'Свернуть' : 'Смотреть'}
+          </button>
+        )}
+        <button
+          className="btn btn-primary btn-sm"
+          onClick={onDraft}
+          disabled={isRunning}
+          title="Составить методику испытания для этой функции"
+        >
+          {isRunning ? <><Spinner size={12} /> Составление...</> : result ? 'Пересоставить' : 'Составить'}
+        </button>
+      </div>
+
+      {isFailed && (
+        <div style={{ padding: '8px 14px', background: '#fef2f2', fontSize: 12, color: 'var(--color-danger)' }}>
+          Ошибка: {task.error}
+        </div>
+      )}
+
+      {expanded && result && (
+        <div style={{ padding: '12px 14px', borderTop: '1px solid var(--color-border)', fontSize: 13 }}>
+          <PmiSectionView section={result} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function PmiSectionView({ section }) {
+  const rows = [
+    { label: 'Цель', value: section.test_objective },
+    { label: 'Метод', value: section.method },
+    { label: 'Наблюдения', value: section.observations },
+    { label: 'Рекомендация', value: section.recommendation },
+  ];
+
+  const scenarios = section.scenarios || [];
+  const defects = section.defects || [];
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+      {rows.map(({ label, value }) => value ? (
+        <div key={label}>
+          <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)', fontSize: 12 }}>{label}: </span>
+          <span style={{ whiteSpace: 'pre-wrap' }}>{value}</span>
+        </div>
+      ) : null)}
+      {scenarios.length > 0 && (
+        <div>
+          <div style={{ fontWeight: 600, color: 'var(--color-text-secondary)', fontSize: 12, marginBottom: 4 }}>Сценарии:</div>
+          {scenarios.map((s, i) => (
+            <div key={i} style={{ paddingLeft: 12, color: 'var(--color-text-secondary)', marginBottom: 2 }}>• {s}</div>
+          ))}
+        </div>
+      )}
+      {defects.length > 0 && (
+        <div>
+          <div style={{ fontWeight: 600, color: 'var(--color-danger)', fontSize: 12, marginBottom: 4 }}>Дефекты:</div>
+          {defects.map((d, i) => (
+            <div key={i} style={{ paddingLeft: 12, color: 'var(--color-danger)', marginBottom: 2 }}>• {d}</div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

@@ -43,11 +43,16 @@ def _get_rag() -> RAGRetriever:
     return _rag
 
 
-def _load_system_prompt(rag_context: str) -> str:
+def _load_system_prompt(rag_context: str, tz_context: str = "") -> str:
     from pathlib import Path
     prompt_path = Path(__file__).parent.parent / "prompts" / "planner_system.md"
     template = prompt_path.read_text(encoding="utf-8")
-    return template.replace("{rag_context}", rag_context)
+    tz_block = tz_context.strip() if tz_context else "Документация ТЗ/ЧТЗ не предоставлена."
+    return (
+        template
+        .replace("{tz_context}", tz_block)
+        .replace("{rag_context}", rag_context)
+    )
 
 
 def _extract_json(text: str) -> dict:
@@ -218,7 +223,8 @@ async def planner_node(state: PMIAgentState) -> dict:
     rag_context = rag.retrieve_for_planner(
         f"{state['function_name']}: {state['function_description']}"
     )
-    system_prompt = _load_system_prompt(rag_context)
+    tz_context = state.get("tz_context") or ""
+    system_prompt = _load_system_prompt(rag_context, tz_context)
 
     last_error: str = ""
     for attempt in range(MAX_RETRIES):
