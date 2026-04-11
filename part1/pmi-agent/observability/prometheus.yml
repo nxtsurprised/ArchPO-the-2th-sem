@@ -16,10 +16,6 @@ scrape_configs:
       - targets: ["pmi-agent:8006"]
     metrics_path: /metrics
 
-  - job_name: "chromadb"
-    static_configs:
-      - targets: ["chromadb:8000"]
-    metrics_path: /metrics
 
   - job_name: "prometheus"
     static_configs:

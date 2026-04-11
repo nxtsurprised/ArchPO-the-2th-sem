@@ -46,12 +46,3 @@ groups:
           summary: "Составление черновика занимает слишком долго"
           description: "95-й перцентиль времени draft-пайплайна превысил 400 секунд."
 
-      # ── ChromaDB недоступен ───────────────────────────────────────────────
-      - alert: ChromaDBDown
-        expr: up{job="chromadb"} == 0
-        for: 1m
-        labels:
-          severity: critical
-        annotations:
-          summary: "ChromaDB недоступен"
-          description: "RAG-хранилище не отвечает — агенты работают без knowledge base."
