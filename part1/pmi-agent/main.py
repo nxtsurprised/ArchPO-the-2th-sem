@@ -372,3 +372,24 @@ async def reload_knowledge():
         return {"status": "ok", "chunks_loaded": chunks}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/api/v1/alerts")
+async def receive_alerts(payload: dict):
+    """Webhook-ресивер для Alertmanager. Логирует входящие алерты."""
+    alerts = payload.get("alerts", [])
+    for alert in alerts:
+        name = alert.get("labels", {}).get("alertname", "unknown")
+        severity = alert.get("labels", {}).get("severity", "unknown")
+        status = alert.get("status", "unknown")  # firing | resolved
+        summary = alert.get("annotations", {}).get("summary", "")
+        description = alert.get("annotations", {}).get("description", "")
+        logger.warning(
+            "alert_received",
+            alert=name,
+            severity=severity,
+            status=status,
+            summary=summary,
+            description=description,
+        )
+    return {"received": len(alerts)}
