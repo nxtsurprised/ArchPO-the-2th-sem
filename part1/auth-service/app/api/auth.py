@@ -6,11 +6,13 @@ from app.database import get_db
 from app.schemas.auth import LoginRequest, TokenResponse, PasswordResetRequest, PasswordResetConfirm
 from app.services.auth_service import login_user, refresh_tokens, logout_user
 from app.api.deps import get_current_user
+from app.middleware.rate_limit import limiter
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
 
 @router.post("/login", response_model=TokenResponse)
+@limiter.limit("20/minute")
 async def login(
     body: LoginRequest,
     request: Request,
@@ -82,7 +84,8 @@ async def logout(
 
 
 @router.post("/password/reset-request", status_code=200)
-async def password_reset_request(body: PasswordResetRequest):
+@limiter.limit("5/minute")
+async def password_reset_request(request: Request, body: PasswordResetRequest):
     # Всегда возвращаем 200 независимо от того, существует ли аккаунт.
     # Так злоумышленник не может перебором выяснить, какие email зарегистрированы.
     # В MVP реальная отправка письма не реализована.

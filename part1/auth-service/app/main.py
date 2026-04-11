@@ -54,6 +54,10 @@ app.add_exception_handler(RequestValidationError, global_error_handler)
 # Rate limiting через slowapi – 20 req/min на /api/auth/login с одного IP
 setup_rate_limiter(app)
 
+# ── Prometheus /metrics ───────────────────────────────────────────────────────
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator(excluded_handlers=["/health", "/metrics"]).instrument(app).expose(app)
+
 # ── Роутеры ─────────────────────────────────────────────────────────────────────
 
 app.include_router(auth.router)        # /api/auth/login, /refresh, /logout, /password/*

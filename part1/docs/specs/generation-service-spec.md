@@ -163,6 +163,21 @@ PATCH Catalog /internal/functions/batch-update-refs
 - `generation.failed` — ошибка (error_type, message)
 - `generation.download` — скачивание (file_key)
 
+## Холодное хранилище (archive_service)
+
+Фоновый воркер запускается в `lifespan` и работает всё время жизни сервиса.
+
+**Алгоритм (каждые `ARCHIVE_INTERVAL_HOURS` часов):**
+1. `GET /internal/documents/archivable?days=ARCHIVE_AFTER_DAYS` → список кандидатов из catalog
+2. Для каждого документа: `MinioClient.list_objects_by_prefix(f"projects/{project_id}/docs/{doc_id}/")` → берёт самый свежий файл
+3. `MinioClient.copy_to_archive(key)` → копирует `documents` → `documents-archive`, удаляет из hot bucket
+4. `PATCH /internal/documents/{id}/archive` → обновляет `archived=true` в MongoDB
+
+**Graceful degradation:** если MinIO или catalog недоступны — логирует warning, следующая итерация через `ARCHIVE_INTERVAL_HOURS`.
+
+**file_key формат:** `projects/{project_id}/docs/{document_id}/{job_id}.{ext}`  
+Воркер находит файл по префиксу `projects/{project_id}/docs/{document_id}/` — независимо от `job_id`.
+
 ## Переменные окружения
 ```env
 CATALOG_SERVICE_URL=http://catalog-service:8002
@@ -172,8 +187,12 @@ MINIO_ACCESS_KEY=<key>
 MINIO_SECRET_KEY=<secret>
 MINIO_BUCKET=documents
 MINIO_TEMPLATES_BUCKET=templates
+MINIO_ARCHIVE_BUCKET=documents-archive
 PRESIGNED_URL_EXPIRY=900
 INTERNAL_API_SECRET=<secret>
+REDIS_URL=redis://redis:6379/1        # опционально, fallback на in-memory
+ARCHIVE_AFTER_DAYS=90                 # документы старше N дней → cold storage
+ARCHIVE_INTERVAL_HOURS=24             # интервал запуска воркера
 ```
 
 ## Структура кода
@@ -187,6 +206,7 @@ generation-service/
     services/
       job_manager.py            # in-memory хранилище job-ов
       generation_service.py     # оркестратор пайплайна
+      archive_service.py        # фоновый воркер холодного хранилища
     pipeline/
       validator.py              # BundleValidator
       section_renderer.py       # диспетчер по source-типам
@@ -199,7 +219,8 @@ generation-service/
         docx_builder.py         # python-docx сборка
         xlsx_builder.py         # openpyxl сборка НМЦК
     storage/
-      minio_client.py
+      minio_client.py           # put_object, get_object_bytes, presigned_get_url,
+                                # list_objects_by_prefix, copy_to_archive
     api/
       jobs.py
       internal.py

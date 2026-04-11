@@ -59,6 +59,10 @@ async def health():
     }
 
 
+# ── Prometheus /metrics ───────────────────────────────────────────────────────
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator(excluded_handlers=["/health", "/metrics"]).instrument(app).expose(app)
+
 app.include_router(approvals.router, prefix="/api/workflow")
 app.include_router(dashboard.router, prefix="/api/workflow")
 app.include_router(internal.router)

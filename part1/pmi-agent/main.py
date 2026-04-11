@@ -1,4 +1,27 @@
-"""FastAPI entrypoint — PMI Agent Service."""
+"""
+PMI Agent Service — отдельный микросервис для автоматизированного тестирования.
+
+Отличие от остальных сервисов:
+  Не использует shared-пакет и не подключается к PostgreSQL/MongoDB.
+  Общается с системой только через Catalog internal API (получает функции и ТЗ-контекст,
+  сохраняет результаты испытаний).
+
+Два режима работы:
+  1. Полный пайплайн (POST /api/v1/pmi/run):
+       Planner → Executor (Playwright, реальный браузер) → Writer
+       Результат: раздел ПМИ с фактическими вердиктами и скриншотами.
+
+  2. Черновой режим (POST /api/v1/pmi/draft-function):
+       Planner → Writer (без Playwright)
+       Результат: методика испытания с ожидаемыми шагами, без выполнения.
+       Используется для предварительного формирования ПМИ-документа.
+
+Хранилище задач (_tasks, _fn_tasks) — in-memory dict, как в generation-service.
+При перезапуске задачи теряются. Для MVP приемлемо.
+
+LLM: Ollama (локально), модель задаётся в OLLAMA_MODEL (по умолчанию mistral).
+RAG: ChromaDB + sentence-transformers для поиска по knowledge base ГОСТ 34.603.
+"""
 
 import asyncio
 import time
@@ -60,7 +83,10 @@ pmi_fallback_total = Counter(
 )
 
 
-# ─── Хранилище запущенных задач (в памяти, для MVP) ──────────────────────
+# ─── Хранилище задач (in-memory, MVP) ────────────────────────────────────
+# Ключ: task_id (UUID), значение: статус + результат задачи.
+# Аналогично JobManager в generation-service: не персистентно, теряется при рестарте.
+# В v2 заменить на Redis или отдельную таблицу.
 _tasks: dict[str, dict] = {}
 
 

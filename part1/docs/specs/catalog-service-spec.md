@@ -153,6 +153,7 @@
   "name": "ТЗ на ГИС ЖКХ v1",
   "type": "tz",
   "status": "draft",
+  "locked": false,
   "function_ids": ["func-0042", "func-0043"],
   "data": {
     "sections": {
@@ -168,9 +169,23 @@
   },
   "version": 1,
   "created_by": "user-uuid",
-  "created_at": "...", "updated_at": "..."
+  "created_at": "...",
+  "updated_at": "...",
+  "archived": false,
+  "archived_at": null,
+  "archive_key": null
 }
 ```
+
+Поля холодного хранилища:
+
+| Поле | Тип | Описание |
+|------|-----|---------|
+| `archived` | bool | `true` — файл перенесён в `documents-archive` bucket |
+| `archived_at` | string\|null | ISO datetime архивирования |
+| `archive_key` | string\|null | Ключ объекта в MinIO `documents-archive` bucket |
+
+`locked` выставляется Kafka-консьюмером при получении событий `document.locked` / `document.unlocked` от workflow-service.
 
 ### audit_log (MongoDB коллекция)
 Та же структура, что в Auth (см. shared AuditEntry). service = "catalog".
@@ -223,7 +238,14 @@
 | Метод | Путь | Описание |
 |-------|------|----------|
 | GET | `/internal/documents/:id/render-bundle` | Всё для генерации: template + data + functions + subsystems + rates + project info |
+| GET | `/internal/documents/archivable?days=90&limit=100` | Документы готовые к архивированию (approved/rejected, старше N дней, не архивированы) |
+| PATCH | `/internal/documents/:id/archive` | Пометить документ архивированным (`archived=true`, `archive_key`, `archived_at`) |
+| GET | `/internal/pmi-functions?project_id=` | Функции проекта для PMI-агента |
+| PUT | `/internal/documents/:id/pmi-results` | Сохранить результаты PMI-агента |
+| GET | `/internal/tz-context?project_id=` | Текст ТЗ/ЧТЗ для PMI-агента |
 | GET | `/internal/audit` | Аудит-записи для агрегации Auth |
+
+Все internal endpoints защищены заголовком `X-Internal-Secret`. Nginx блокирует `/internal/*` снаружи.
 
 ### Render-bundle формат
 ```json
@@ -267,6 +289,8 @@ MONGO_PASSWORD=<secret>
 AUTH_SERVICE_URL=http://auth-service:8001
 WORKFLOW_SERVICE_URL=http://workflow-service:8004
 INTERNAL_API_SECRET=<secret>
+KAFKA_BOOTSTRAP_SERVERS=kafka:9092
+REDIS_URL=redis://redis:6379/0        # опционально, fallback на in-memory
 ```
 
 ## Структура кода

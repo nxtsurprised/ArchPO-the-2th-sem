@@ -21,8 +21,10 @@ logger = structlog.get_logger(__name__)
 _llm: ChatOllama | None = None
 _rag: RAGRetriever | None = None
 
-# Один экземпляр браузера на всё время работы графа (передается через state metadata)
-# Используем модуль-уровневый registry keyed by session_id
+# Реестр браузеров: ключ = function_id (он же session_id).
+# LangGraph вызывает executor_node многократно в цикле (по одному шагу за вызов),
+# поэтому браузер нельзя создавать и уничтожать на каждой итерации — это дорого.
+# Браузер живёт весь пайплайн одной функции и закрывается в _cleanup_node.
 _browsers: dict[str, BrowserTool] = {}
 
 
@@ -174,9 +176,12 @@ async def executor_node(state: PMIAgentState) -> dict:
     )
 
     return {
-        "step_results": [result.model_dump()],  # Накапливается через operator.add
+        # step_results — список из ОДНОГО элемента, но LangGraph объединяет их через
+        # operator.add (объявлен в PMIAgentState): каждый вызов executor_node
+        # добавляет элемент к общему списку, не перезаписывает.
+        "step_results": [result.model_dump()],
         "current_step": current_step_idx + 1,
-        "status": "executing",  # Граф проверит, нужно ли продолжать
+        "status": "executing",  # _should_continue_executor решит: ещё шаги или writer
     }
 
 

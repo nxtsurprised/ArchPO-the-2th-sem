@@ -7,6 +7,7 @@ from fastapi.exceptions import RequestValidationError
 
 from app.config import get_settings
 from app.api import jobs, internal
+from app.services import archive_service
 
 from shared.logging.setup import configure_logging
 from shared.middleware.correlation_id import correlation_id_middleware
@@ -31,6 +32,7 @@ async def lifespan(app: FastAPI):
             secret_key=settings.MINIO_SECRET_KEY,
             bucket=settings.MINIO_BUCKET,
             templates_bucket=settings.MINIO_TEMPLATES_BUCKET,
+            archive_bucket=settings.MINIO_ARCHIVE_BUCKET,
             secure=settings.MINIO_SECURE,
             presigned_expiry=settings.PRESIGNED_URL_EXPIRY,
         )
@@ -38,7 +40,16 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         logger.warning("minio_init_failed", error=str(exc))
 
+    # Запускаем фоновый воркер холодного хранилища
+    archive_service.start_archive_worker(
+        catalog_url=settings.CATALOG_SERVICE_URL,
+        internal_secret=settings.INTERNAL_API_SECRET,
+        archive_after_days=settings.ARCHIVE_AFTER_DAYS,
+        interval_hours=settings.ARCHIVE_INTERVAL_HOURS,
+    )
+
     yield
+    await archive_service.stop_archive_worker()
     logger.info("generation_service_stopping")
 
 
@@ -55,6 +66,10 @@ app.middleware("http")(correlation_id_middleware)
 app.add_exception_handler(FastAPIHTTPException, global_error_handler)
 app.add_exception_handler(RequestValidationError, global_error_handler)
 app.add_exception_handler(Exception, global_error_handler)
+
+# ── Prometheus /metrics ───────────────────────────────────────────────────────
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator(excluded_handlers=["/health", "/metrics"]).instrument(app).expose(app)
 
 # ── Роутеры ──────────────────────────────────────────────────────────────────
 app.include_router(jobs.router)

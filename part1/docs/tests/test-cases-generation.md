@@ -543,6 +543,91 @@ curl -o via_presigned.docx "<presigned_url_из_Location>"
 
 ---
 
+## Блок 9 — Холодное хранилище (архивирование)
+
+> Архивный воркер переносит файлы старше `ARCHIVE_AFTER_DAYS` (по умолчанию 90 дней)
+> из bucket `documents` в bucket `archive`. Тесты имитируют давние файлы через прямую запись в MinIO.
+
+### TC-GEN-25: Архивный воркер запускается без ошибок
+
+```bash
+docker exec generation-service python3 -m app.workers.archive_worker --dry-run
+```
+
+**Ожидаемый результат:** вывод без traceback, строка вида:
+```
+[dry-run] Would archive N files older than 90 days
+```
+
+---
+
+### TC-GEN-26: Файл старше порога переносится в archive bucket
+
+1. Создать тестовый файл в MinIO с датой `LastModified` > 90 дней назад:
+
+```bash
+# Загрузить файл с прошедшей датой через mc
+mc alias set local http://localhost:9000 minioadmin minioadmin
+mc cp /dev/urandom --limit-size=1KB local/documents/projects/test-project/docs/old-doc/old-job.docx
+
+# Вручную установить дату — MinIO не позволяет изменить LastModified напрямую,
+# поэтому используем специальный тест-хелпер:
+docker exec generation-service python3 tests/helpers/create_old_file.py \
+  --bucket documents \
+  --key "projects/test-project/docs/old-doc/old-job.docx" \
+  --days-old 91
+```
+
+2. Запустить архивный воркер:
+
+```bash
+docker exec generation-service python3 -m app.workers.archive_worker
+```
+
+3. Проверить перенос:
+
+```bash
+# Файла нет в основном bucket
+mc ls local/documents/projects/test-project/docs/old-doc/ | grep old-job.docx
+# → пусто
+
+# Файл появился в archive bucket
+mc ls local/archive/projects/test-project/docs/old-doc/ | grep old-job.docx
+# → присутствует
+```
+
+**Ожидаемый результат:** файл перемещён, в исходном пути отсутствует.
+
+---
+
+### TC-GEN-27: Свежий файл не архивируется
+
+Выполнить шаги TC-GEN-25 для файла с `days-old=10`.
+
+**Ожидаемый результат:** файл остаётся в `documents` bucket, воркер его не трогает.
+
+---
+
+### TC-GEN-28: Скачивание заархивированного файла → 410 Gone
+
+*(После TC-GEN-26)*
+
+**Эндпоинт:** `GET /api/generation/jobs/<job_id>/download`
+
+*(job_id соответствует заархивированному файлу)*
+
+**Ожидаемый результат:** `410 Gone`
+```json
+{
+  "error": {
+    "code": "FILE_ARCHIVED",
+    "message": "File has been moved to cold storage. Contact administrator to restore."
+  }
+}
+```
+
+---
+
 ## Сводная таблица
 
 | №           | Эндпоинт                                                    | Что проверяет                                       | Ожидаемый статус |
@@ -571,6 +656,10 @@ curl -o via_presigned.docx "<presigned_url_из_Location>"
 | TC-GEN-22   | GET /internal/audit (с секретом)                            | Аудит-записи generation.*                           | 200             |
 | TC-GEN-23   | MinIO Console / mc ls                                       | Файлы существуют в bucket                           | —               |
 | TC-GEN-24   | Presigned URL без авторизации                               | Прямое скачивание по presigned URL                  | 200             |
+| TC-GEN-25   | archive_worker --dry-run                                    | Воркер запускается без ошибок                       | —               |
+| TC-GEN-26   | archive_worker (файл старше 90 дней)                        | Файл перенесён в cold storage                       | —               |
+| TC-GEN-27   | archive_worker (файл 10 дней)                               | Свежий файл не архивируется                         | —               |
+| TC-GEN-28   | GET /api/generation/jobs/:id/download (archived)            | 410 Gone для заархивированного файла                | 410             |
 
 ---
 

@@ -1,3 +1,17 @@
+"""
+Единый аудит-логгер для всех сервисов.
+
+Архитектурное решение — локальный аудит в каждом сервисе:
+  Каждый сервис пишет аудит-события в свою БД в рамках той же транзакции,
+  что и бизнес-операция. Это гарантирует атомарность: либо и операция, и
+  аудит-запись сохранены, либо ни то, ни другое.
+
+  Альтернатива — централизованный Audit Service — отложена на v2 (через Kafka).
+  Там атомарность обеспечивается иначе (transactional outbox), но это сложнее.
+
+Текущая реализация пишет в structlog. Конкретные сервисы могут расширить
+класс или передать session_factory для записи непосредственно в БД.
+"""
 from __future__ import annotations
 from typing import TYPE_CHECKING
 import structlog
@@ -12,9 +26,10 @@ logger = structlog.get_logger()
 
 class AuditLogger:
     """
-    Unified logger for all services.
-    Writes to local DB (atomically with business operation).
-    Concrete DB write is implemented by each service via subclass or injection.
+    Записывает аудит-событие: кто, что сделал, с каким результатом.
+
+    Параметр user=None используется для системных операций (фоновые задачи,
+    seed-скрипты), в этом случае user_id записывается как "system".
     """
 
     def __init__(self, service_name: str, session_factory=None):
@@ -42,6 +57,7 @@ class AuditLogger:
         if request is not None:
             ip_address = request.client.host if request.client else "unknown"
             user_agent = request.headers.get("User-Agent")
+            # correlation_id проставлен CorrelationIdMiddleware ранее в цепочке запроса
             correlation_id = getattr(request.state, "correlation_id", None)
 
         entry = {
@@ -57,9 +73,9 @@ class AuditLogger:
             "resource_id": resource_id,
             "project_id": str(project_id) if project_id else None,
             "correlation_id": correlation_id,
-            "result": result,
-            "changes": changes,
-            "details": details,
+            "result": result,        # "success" | "failure" | "denied"
+            "changes": changes,      # { field: { old, new } } от audit_diff.compute_changes()
+            "details": details,      # произвольный контекст операции
         }
 
         logger.info("audit_event", **entry)

@@ -14,7 +14,7 @@
 
 ## Архитектура
 
-4 микросервиса + shared пакет. Подробности: [docs/architecture.md](docs/architecture.md)
+4 микросервиса + shared пакет. Подробности: [docs/architecture/architecture.md](docs/architecture/architecture.md)
 
 | Сервис | Ответственность | БД | Порт |
 |--------|----------------|-----|------|
@@ -41,13 +41,13 @@
 
 Перед реализацией каждого сервиса — обязательно прочитать соответствующую спецификацию:
 
-- [docs/auth-service-spec.md](docs/auth-service-spec.md) — Auth Service
-- [docs/catalog-service-spec.md](docs/catalog-service-spec.md) — Catalog Service
-- [docs/generation-service-spec.md](docs/generation-service-spec.md) — Generation Service
-- [docs/workflow-service-spec.md](docs/workflow-service-spec.md) — Workflow Service
-- [docs/shared-spec.md](docs/shared-spec.md) — Shared пакет
-- [docs/permissions-matrix.md](docs/permissions-matrix.md) — Матрица прав (38 permissions × 7 ролей)
-- [docs/security-requirements.md](docs/security-requirements.md) — Требования безопасности
+- [docs/specs/auth-service-spec.md](docs/specs/auth-service-spec.md) — Auth Service
+- [docs/specs/catalog-service-spec.md](docs/specs/catalog-service-spec.md) — Catalog Service
+- [docs/specs/generation-service-spec.md](docs/specs/generation-service-spec.md) — Generation Service
+- [docs/specs/workflow-service-spec.md](docs/specs/workflow-service-spec.md) — Workflow Service
+- [docs/specs/shared-spec.md](docs/specs/shared-spec.md) — Shared пакет
+- [docs/security/permissions-matrix.md](docs/security/permissions-matrix.md) — Матрица прав (38 permissions × 7 ролей)
+- [docs/security/security-requirements.md](docs/security/security-requirements.md) — Требования безопасности
 
 ## Ключевые архитектурные решения
 

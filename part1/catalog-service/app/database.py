@@ -1,3 +1,16 @@
+"""
+Инициализация подключения к MongoDB через Motor + Beanie.
+
+Стек:
+  Motor  — официальный async-драйвер MongoDB для Python (asyncio-совместимый).
+  Beanie — ODM (Object-Document Mapper) поверх Motor: Pydantic-модели как документы,
+           автоматические индексы, типизированные запросы.
+
+Все модели должны быть переданы в beanie.init_beanie() при старте — это нужно для:
+  1. Регистрации коллекций (имя берётся из Settings.name каждой модели).
+  2. Создания объявленных индексов (если не существуют).
+  3. Настройки валидации схемы документов.
+"""
 from __future__ import annotations
 import beanie
 from motor.motor_asyncio import AsyncIOMotorClient
@@ -10,6 +23,7 @@ async def init_db(settings) -> None:
     _motor_client = AsyncIOMotorClient(settings.MONGO_URL)
     db = _motor_client[settings.MONGO_DB]
 
+    # Отложенные импорты — избегают циклических зависимостей при загрузке модуля
     from app.models.template import Template
     from app.models.function import Function
     from app.models.subsystem import Subsystem

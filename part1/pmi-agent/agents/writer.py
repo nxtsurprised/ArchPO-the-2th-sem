@@ -48,6 +48,8 @@ def _load_system_prompt(rag_context: str) -> str:
     return template.replace("{rag_context}", rag_context)
 
 
+# LLM (особенно Mistral на русском) может отвечать с русскими ключами вместо английских.
+# Этот маппинг нормализует их к ожидаемой схеме независимо от языка ответа модели.
 _RU_KEY_MAP = {
     # Вердикт / результат
     "вердикт": "verdict",
@@ -248,7 +250,8 @@ async def writer_node(state: PMIAgentState) -> dict:
 
         section_dict = _unwrap_section(_extract_json(response.content))
 
-        # Дополняем статистикой (не доверяем LLM считать)
+        # Статистику (steps_total, passed, failed) вычисляем детерминированно,
+        # а не доверяем LLM — модель может ошибиться в подсчёте.
         section_dict.update({
             "function_id": state["function_id"],
             "function_name": state["function_name"],

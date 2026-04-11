@@ -95,6 +95,10 @@ async def health():
     }
 
 
+# ── Prometheus /metrics ────────────────────────────────────────────────────────
+from prometheus_fastapi_instrumentator import Instrumentator
+Instrumentator(excluded_handlers=["/health", "/metrics"]).instrument(app).expose(app)
+
 # ── Routes ─────────────────────────────────────────────────────────────────────
 from app.api import templates, functions, subsystems, rates, documents, internal
 

@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     # Internal API
     INTERNAL_API_SECRET: str = "internal_secret"
 
+    # Redis (опционально — fallback на in-memory если не задан)
+    REDIS_URL: str | None = None
+
+    # Холодное хранилище
+    MINIO_ARCHIVE_BUCKET: str = "documents-archive"
+    ARCHIVE_AFTER_DAYS: int = 90    # документы старше N дней переводятся в cold storage
+    ARCHIVE_INTERVAL_HOURS: int = 24  # как часто запускать воркер архивирования
+
     # Local .dotx fallback (for dev/tests without MinIO)
     # If set, Generation Service reads template from this path instead of MinIO.
     DOTX_LOCAL_PATH: str | None = None

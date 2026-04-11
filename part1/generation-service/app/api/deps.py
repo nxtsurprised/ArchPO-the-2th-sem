@@ -4,8 +4,8 @@ from shared.middleware.jwt_auth import JWTAuth
 from shared.services.cache import CacheService
 from app.config import get_settings
 
-_cache = CacheService()
 _settings = get_settings()
+_cache = CacheService(redis_url=_settings.REDIS_URL)
 _jwt_auth = JWTAuth(auth_service_url=_settings.AUTH_SERVICE_URL, cache=_cache)
 
 

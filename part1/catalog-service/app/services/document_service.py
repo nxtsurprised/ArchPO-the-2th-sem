@@ -1,3 +1,16 @@
+"""
+Сервис управления документами (CRUD + бизнес-логика).
+
+Catalog-service — центральное хранилище данных системы.
+Generation и Workflow не имеют собственных хранилищ данных и получают
+всё необходимое через Catalog:
+  - Generation запрашивает render-bundle (get_render_bundle) — один вызов,
+    возвращающий шаблон + данные + функции + подсистемы + ставки.
+  - Workflow получает уведомления о блокировке документа через Kafka,
+    а не через прямые HTTP-запросы.
+
+MongoDB через Beanie ODM — все операции асинхронны (Motor driver).
+"""
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
@@ -37,7 +50,10 @@ async def get_document(doc_id: str) -> Document | None:
 async def create_document(data: DocumentCreate, created_by: str) -> Document:
     now = _now()
 
-    # Предзаполняем секции из шаблона — только manual-поля, пустые значения
+    # Предзаполняем структуру секций из шаблона: создаём пустые поля для всех
+    # manual-секций, чтобы фронтенд сразу получил готовую форму с ключами.
+    # Секции типа functions/subsystems/static не требуют пользовательского ввода —
+    # они заполняются автоматически при генерации.
     initial_sections: dict[str, Any] = {}
     if data.template_id:
         tmpl = await Template.get(data.template_id)
@@ -49,7 +65,8 @@ async def create_document(data: DocumentCreate, created_by: str) -> Document:
                         f["key"]: "" for f in section["fields"]
                     }
 
-    # Merge: template empty fields as base, caller-provided sections win
+    # Стратегия слияния: template-ключи как база, данные из запроса имеют приоритет.
+    # Это позволяет при создании сразу передать частично заполненный документ.
     provided_sections = (data.data or {}).get("sections", {})
     merged_sections = {**initial_sections, **provided_sections}
 
@@ -117,12 +134,31 @@ async def validate_document(doc: Document) -> dict[str, Any]:
 
 
 async def get_render_bundle(doc: Document) -> dict[str, Any]:
+    """
+    Собирает render-bundle — всё необходимое для генерации документа в один ответ.
+
+    Generation-service получает этот bundle одним HTTP-запросом к internal API
+    и не делает дополнительных запросов в Catalog. Это атомарный снэпшот:
+    даже если данные изменятся пока идёт генерация, job работает с консистентной копией.
+
+    Структура ответа:
+      template  — секции и параметры форматирования шаблона
+      dotx_key  — путь к .dotx файлу в MinIO (None → использовать дефолтный из assets/)
+      data      — заполненные пользователем данные секций
+      functions — полные объекты функций из справочника (не только ID)
+      subsystems — подсистемы, отсортированные по order (определяет порядок в ТЗ)
+      rates     — ставки проекта для расчёта НМЦК
+      project   — минимальный контекст проекта (ID)
+    """
     if not doc.template_id:
         return {}
     tmpl = await Template.get(doc.template_id)
     if not tmpl:
         return {}
 
+    # N+1 запросов к MongoDB для загрузки функций по ID.
+    # Приемлемо для MVP: документ содержит обычно до ~100 функций.
+    # В v2 заменить на Function.find({"_id": {"$in": doc.function_ids}}).
     functions = []
     if doc.function_ids:
         for fid in doc.function_ids:
@@ -130,6 +166,7 @@ async def get_render_bundle(doc: Document) -> dict[str, Any]:
             if fn:
                 functions.append(fn.model_dump())
 
+    # Подсистемы сортируются по полю order — оно определяет нумерацию разделов (4.2.1, 4.2.2...)
     subsystems_raw = await Subsystem.find(
         {"project_id": doc.project_id}
     ).sort("+order").to_list()

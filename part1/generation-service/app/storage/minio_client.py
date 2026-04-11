@@ -13,13 +13,20 @@ logger = structlog.get_logger()
 
 class MinioClient:
     """
-    Обёртка над minio-py для асинхронного использования (запуск в executor).
+    Обёртка над minio-py для асинхронного использования.
+
+    minio-py — синхронная библиотека. Прямой вызов из async-кода заблокировал бы
+    event loop на время сетевого запроса. Поэтому все операции запускаются через
+    loop.run_in_executor(None, ...) — выполняются в пуле потоков ThreadPoolExecutor,
+    не блокируя event loop.
 
     Реализует:
-    - put_object — загрузка с вычислением SHA-256
-    - presigned_get — presigned URL на скачивание
-    - get_object — скачивание (для dotx шаблонов)
-    - 3 retry с экспоненциальной задержкой при сбоях
+    - put_object       — загрузка с вычислением SHA-256
+    - presigned_get    — presigned URL на скачивание (для API /download)
+    - get_object_bytes — скачивание в память (для .dotx шаблонов)
+    - list_objects_by_prefix — список файлов по префиксу (для архивного воркера)
+    - copy_to_archive  — перемещение из hot в cold bucket
+    - 3 retry с экспоненциальной задержкой (1s, 2s, 4s) через _with_retry
     """
 
     MAX_RETRIES = 3
@@ -32,6 +39,7 @@ class MinioClient:
         secret_key: str,
         bucket: str,
         templates_bucket: str,
+        archive_bucket: str = "documents-archive",
         secure: bool = False,
         presigned_expiry: int = 900,
     ) -> None:
@@ -45,10 +53,12 @@ class MinioClient:
         )
         self.bucket = bucket
         self.templates_bucket = templates_bucket
+        self.archive_bucket = archive_bucket
         self.presigned_expiry = presigned_expiry
 
         self._ensure_bucket(bucket)
         self._ensure_bucket(templates_bucket)
+        self._ensure_bucket(archive_bucket)
 
     def _ensure_bucket(self, bucket: str) -> None:
         """Создаёт bucket если не существует."""
@@ -113,6 +123,61 @@ class MinioClient:
 
     # ──────────────────────────────────────────────────────────────────────────
 
+    async def list_objects_by_prefix(self, prefix: str) -> list[dict]:
+        """
+        Возвращает список объектов в hot bucket с заданным префиксом.
+        Каждый элемент: {"key": str, "size": int, "last_modified": datetime}
+        """
+        loop = asyncio.get_event_loop()
+        try:
+            objects = await loop.run_in_executor(
+                None,
+                lambda: list(self._client.list_objects(self.bucket, prefix=prefix, recursive=True)),
+            )
+            return [
+                {
+                    "key": obj.object_name,
+                    "size": obj.size,
+                    "last_modified": obj.last_modified,
+                }
+                for obj in objects
+            ]
+        except Exception as exc:
+            logger.warning("minio_list_objects_failed", prefix=prefix, error=str(exc))
+            return []
+
+    async def copy_to_archive(self, key: str) -> str:
+        """
+        Копирует объект из documents bucket в documents-archive bucket.
+        Возвращает ключ объекта в archive bucket (идентичен исходному).
+        После успешного копирования удаляет объект из hot bucket.
+        """
+        from minio.commonconfig import CopySource
+
+        loop = asyncio.get_event_loop()
+
+        def _do_copy():
+            self._client.copy_object(
+                self.archive_bucket,
+                key,
+                CopySource(self.bucket, key),
+            )
+
+        await self._with_retry(_do_copy)
+
+        # Удаляем из hot bucket только после подтверждения копирования
+        try:
+            await loop.run_in_executor(
+                None, lambda: self._client.remove_object(self.bucket, key)
+            )
+            logger.info("archive_hot_deleted", key=key, bucket=self.bucket)
+        except Exception as exc:
+            # Не фатально: объект уже скопирован, удаление можно повторить позже
+            logger.warning("archive_hot_delete_failed", key=key, error=str(exc))
+
+        logger.info("archive_copied", key=key, src=self.bucket, dst=self.archive_bucket)
+        return key
+
     async def _with_retry(self, fn, *args) -> Any:
         """Выполняет синхронную функцию с 3 retry и экспоненциальной задержкой."""
         loop = asyncio.get_event_loop()
@@ -133,7 +198,9 @@ class MinioClient:
         raise RuntimeError(f"MinIO unavailable after {self.MAX_RETRIES} retries: {last_exc}") from last_exc
 
 
-# Синглтон, инициализируется в lifespan
+# Синглтон — один клиент на весь процесс сервиса.
+# Инициализируется через init_minio() в lifespan при старте,
+# получается через get_minio_client() из любого места кода.
 _minio: MinioClient | None = None
 
 
@@ -149,6 +216,7 @@ def init_minio(
     secret_key: str,
     bucket: str,
     templates_bucket: str,
+    archive_bucket: str,
     secure: bool,
     presigned_expiry: int,
 ) -> MinioClient:
@@ -159,6 +227,7 @@ def init_minio(
         secret_key=secret_key,
         bucket=bucket,
         templates_bucket=templates_bucket,
+        archive_bucket=archive_bucket,
         secure=secure,
         presigned_expiry=presigned_expiry,
     )

@@ -72,8 +72,11 @@ services:
       MAX_CONCURRENT_SESSIONS: 3
       IDLE_TIMEOUT_SECONDS: 1800
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-internal_secret}
+      REDIS_URL: redis://redis:6379/3
     depends_on:
       auth-postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8001/health')"]
@@ -118,6 +121,7 @@ services:
       WORKFLOW_SERVICE_URL: http://workflow-service:8004
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-internal_secret}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_URL: redis://redis:6379/0
     depends_on:
       catalog-mongodb:
         condition: service_healthy
@@ -125,6 +129,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8002/health')"]
       interval: 10s
@@ -164,13 +170,19 @@ services:
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY:-minioadmin}
       MINIO_BUCKET: documents
       MINIO_TEMPLATES_BUCKET: templates
+      MINIO_ARCHIVE_BUCKET: documents-archive
       MINIO_SECURE: "false"
       PRESIGNED_URL_EXPIRY: 900
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-internal_secret}
+      REDIS_URL: redis://redis:6379/1
+      ARCHIVE_AFTER_DAYS: ${ARCHIVE_AFTER_DAYS:-90}
+      ARCHIVE_INTERVAL_HOURS: ${ARCHIVE_INTERVAL_HOURS:-24}
     depends_on:
       minio:
         condition: service_healthy
       catalog-service:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8003/health')"]
@@ -200,6 +212,7 @@ services:
       CATALOG_INTERNAL_URL: http://catalog-service:8002
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-internal_secret}
       KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      REDIS_URL: redis://redis:6379/2
     depends_on:
       workflow-postgres:
         condition: service_healthy
@@ -207,6 +220,8 @@ services:
         condition: service_healthy
       kafka:
         condition: service_started
+      redis:
+        condition: service_healthy
     healthcheck:
       test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8004/health')"]
       interval: 10s
@@ -302,6 +317,7 @@ services:
       mc alias set myminio http://minio:9000 $${MINIO_ACCESS_KEY:-minioadmin} $${MINIO_SECRET_KEY:-minioadmin};
       mc mb --ignore-existing myminio/documents;
       mc mb --ignore-existing myminio/templates;
+      mc mb --ignore-existing myminio/documents-archive;
       mc cp /dotx/gost-2105-template.dotx myminio/templates/dotx/gost-2105-template.dotx;
       echo 'MinIO setup complete';
       "
@@ -401,6 +417,77 @@ services:
       start_period: 120s
     restart: unless-stopped
 
+  # ============================================================
+  # Redis (кеш + хранилище для rate limiter)
+  # ============================================================
+  redis:
+    image: redis:7.2-alpine
+    command: redis-server --save 60 1 --loglevel warning --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    restart: unless-stopped
+
+  # ============================================================
+  # Observability: Prometheus + Grafana + Loki + Promtail
+  # ============================================================
+  prometheus:
+    image: prom/prometheus:v2.50.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./observability/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - "--config.file=/etc/prometheus/prometheus.yml"
+      - "--storage.tsdb.path=/prometheus"
+      - "--storage.tsdb.retention.time=15d"
+      - "--web.enable-lifecycle"
+    restart: unless-stopped
+
+  grafana:
+    image: grafana/grafana:10.3.3
+    ports:
+      - "3001:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_USER:-admin}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_PASSWORD:-admin}
+      GF_USERS_ALLOW_SIGN_UP: "false"
+    depends_on:
+      - prometheus
+      - loki
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+    restart: unless-stopped
+
+  loki:
+    image: grafana/loki:2.9.5
+    ports:
+      - "3100:3100"
+    volumes:
+      - ./observability/loki-config.yml:/etc/loki/config.yml:ro
+      - loki-data:/loki
+    command: -config.file=/etc/loki/config.yml
+    restart: unless-stopped
+
+  promtail:
+    image: grafana/promtail:2.9.5
+    volumes:
+      - ./observability/promtail-config.yml:/etc/promtail/config.yml:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    command: -config.file=/etc/promtail/config.yml
+    depends_on:
+      - loki
+    restart: unless-stopped
+
 volumes:
   auth-pg-data:
   workflow-pg-data:
@@ -411,6 +498,10 @@ volumes:
   ollama-data:
   chromadb-data:
   pmi-outputs:
+  redis-data:
+  prometheus-data:
+  grafana-data:
+  loki-data:
 
 secrets:
   jwt_private:

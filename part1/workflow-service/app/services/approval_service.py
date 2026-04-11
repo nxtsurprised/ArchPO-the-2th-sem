@@ -1,3 +1,41 @@
+"""
+Сервис управления процессом согласования документов.
+
+Жизненный цикл согласования (стейт-машина):
+
+  submit_approval()
+       │
+       ▼
+  ApprovalRequest(status="pending") + ApprovalRound(round=1, status="active")
+       │
+       │  decide() вызывается участниками (заказчик + подрядчик)
+       ▼
+  evaluate_round() оценивает решения
+       │
+       ├─ ещё не все стороны решили → ничего, ждём
+       │
+       ├─ approved  → request.status="approved",  документ заблокирован
+       ├─ rejected  → request.status="rejected",  документ разблокирован
+       └─ revision  → request.status="revision",  документ разблокирован
+                           │
+                           │  следующий вызов decide() автоматически открывает
+                           │  новый раунд: status обратно в "pending", round +1
+                           ▼
+                    ApprovalRound(round=2, status="active") ...
+
+Типы согласования:
+  tz_final   — ТЗ: обязательны решения обеих сторон (customer + contractor)
+  nmck_final — НМЦК: обязательны решения обеих сторон
+  review     — информационный просмотр: раунд не закрывается никогда
+
+SQLAlchemy async особенности:
+  - expire_on_commit=False (настройка сессии) означает, что после commit()
+    объекты НЕ инвалидируются — их атрибуты читаются из памяти, а не из БД.
+  - Поэтому _load_full() использует populate_existing=True, чтобы принудительно
+    перечитать объект из БД и обновить identity map.
+  - После flush() новые объекты видны только в текущей сессии, но relationship-коллекции
+    в памяти устаревают — нужен db.refresh(obj, attribute_names=[...]).
+"""
 from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Any
@@ -76,7 +114,8 @@ async def submit_approval(
     user_role: str,
     user_side: str,
 ) -> ApprovalRequest:
-    # Check for existing active (non-review) pending approval on this document
+    # Запрещаем открывать два параллельных финальных согласования на один документ.
+    # review-запросы параллельны по определению и это ограничение к ним не применяется.
     if data.type != "review":
         result = await db.execute(
             select(ApprovalRequest).where(
@@ -97,6 +136,7 @@ async def submit_approval(
                 },
             )
 
+    # review не блокирует документ — это информационное согласование без последствий для редактирования
     is_locked = data.type != "review"
 
     approval = ApprovalRequest(
@@ -110,7 +150,9 @@ async def submit_approval(
         is_locked=is_locked,
     )
     db.add(approval)
-    await db.flush()  # get approval.id
+    # flush без commit — нужен approval.id для создания первого раунда,
+    # но commit откладываем до конца метода чтобы всё было атомарно
+    await db.flush()
 
     first_round = ApprovalRound(
         request_id=approval.id,
@@ -120,6 +162,7 @@ async def submit_approval(
     db.add(first_round)
 
     if is_locked:
+        # Сразу уведомляем Catalog о блокировке — документ нельзя редактировать пока идёт согласование
         await lock_manager.notify_catalog_lock(data.document_id, locked=True, status="pending", approval_id=approval.id)
 
     await _emitter.emit(
@@ -195,7 +238,9 @@ async def decide(
     if not approval:
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "Approval not found"})
 
-    # If request is in revision state, auto-create a new round
+    # Особый случай: статус "revision" означает что предыдущий раунд завершился требованием
+    # доработки. Первый участник, который отправляет решение в этом состоянии, автоматически
+    # открывает новый раунд — не нужно отдельного API-вызова для "переоткрытия".
     if approval.status == "revision":
         approval.status = "pending"
         approval.current_round += 1
@@ -210,6 +255,7 @@ async def decide(
         await db.flush()
 
         if approval.type != "review":
+            # Повторная блокировка — документ снова нельзя редактировать в новом раунде
             await lock_manager.notify_catalog_lock(
                 approval.document_id, locked=True, status="pending", approval_id=approval.id
             )
@@ -220,7 +266,6 @@ async def decide(
             detail={"code": "APPROVAL_NOT_PENDING", "message": f"Approval is {approval.status}"},
         )
 
-    # Validate permission
     if not _can_decide(approval.type, data.decision, user_role):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -230,7 +275,8 @@ async def decide(
             },
         )
 
-    # Find the current active round (query directly to avoid stale cache)
+    # Запрашиваем активный раунд напрямую из БД, а не из identity map approval.rounds —
+    # после flush() нового раунда identity map может содержать устаревший срез коллекции.
     round_result = await db.execute(
         select(ApprovalRound)
         .options(selectinload(ApprovalRound.decisions))
@@ -303,7 +349,10 @@ async def decide(
         approval.status = outcome
         approval.updated_at = _now()
 
-        # Lock/unlock catalog document based on outcome
+        # Синхронизируем статус блокировки документа с исходом раунда:
+        #   approved  → документ заблокирован (утверждён, нельзя редактировать)
+        #   rejected  → документ разблокирован, статус "rejected"
+        #   revision  → документ разблокирован, возвращается в "draft" для доработки
         if approval.type != "review":
             if outcome == "approved":
                 approval.is_locked = True

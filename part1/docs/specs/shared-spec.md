@@ -156,25 +156,49 @@ class InternalHttpClient:
 ```python
 class CacheService:
     """
-    MVP: dict с TTL (in-memory)
-    v2: Redis/Valkey
-    
+    Кеш с поддержкой TTL.
+
+    Два режима:
+    - Redis (production): CacheService(redis_url="redis://redis:6379/0")
+    - In-memory fallback: CacheService() — если redis_url не задан или Redis недоступен
+
+    При недоступности Redis автоматически переключается на in-memory без исключений.
+    Значения сериализуются через pickle — поддерживает любые Python-объекты.
+
     async get(key: str) -> Any | None
     async set(key: str, value: Any, ttl_seconds: int = 3600) -> None
     async delete(key: str) -> None
+    async exists(key: str) -> bool
+    async close() -> None   # вызывать при shutdown
     """
 ```
 
+Подробнее: [redis-cache.md](redis-cache.md)
+
 ### events.py
 ```python
+# Конфигурация (один раз при старте):
+events.configure(bootstrap_servers="kafka:9092", service_name="workflow")
+
 class EventEmitter:
     """
-    MVP: structlog.info(event=name, **payload)
-    v2: kafka.produce(topic=name, value=payload)
-    
-    async emit(event_name: str, payload: dict) -> None
+    Kafka producer wrapper (aiokafka).
+    Ключ сообщения = document_id → порядок событий для одного документа гарантирован.
+    Graceful degradation: при недоступности Kafka логирует warning, запрос не прерывает.
+
+    async emit(
+        event_type: str,
+        payload: dict,
+        topic: str = "gost34.workflow.events",
+        key: str | None = None,
+    ) -> None
     """
+
+# Utility
+async def stop_producer() -> None   # вызывать при shutdown
 ```
+
+Подробнее: [kafka-eda.md](kafka-eda.md)
 
 ### audit.py
 ```python

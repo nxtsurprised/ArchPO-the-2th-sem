@@ -1,3 +1,23 @@
+"""
+DocxBuilder — финальный этап пайплайна .docx.
+
+Переводит IR-элементы (IRHeading, IRParagraph, IRList, IRTable) в Word-документ.
+
+Архитектура двух уровней форматирования:
+  1. .dotx шаблон (основной путь)
+     python-docx открывает шаблон ГОСТ 2.105 с готовыми стилями,
+     DocxBuilder применяет именованные стили из STYLE_MAP.
+     .dotx хранится в MinIO bucket templates/ или в assets/ образа.
+
+  2. Программный fallback
+     Если .dotx недоступен (тесты, локальная разработка без MinIO),
+     применяются параметры шрифта/полей из FONT_SETTINGS/PAGE_SETTINGS напрямую.
+
+Слой IR (промежуточное представление):
+  Рендереры секций возвращают IR-элементы — не привязанные к python-docx объекты.
+  Это позволяет тестировать рендеринг без python-docx и легко менять backend
+  (например, на LibreOffice UNO в будущем).
+"""
 from __future__ import annotations
 import io
 import zipfile
@@ -21,6 +41,8 @@ if TYPE_CHECKING:
     pass
 
 
+# Content-Type .dotx и .docx отличаются в [Content_Types].xml внутри zip-архива.
+# python-docx умеет открывать только .docx — патчим content type в памяти.
 _TEMPLATE_CT = b"application/vnd.openxmlformats-officedocument.wordprocessingml.template.main+xml"
 _DOCUMENT_CT = b"application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"
 
@@ -176,11 +198,11 @@ class DocxBuilder:
         style_name = STYLE_MAP.get(style) if style else list_style_name(ordered)
         if not style_name:
             style_name = list_style_name(ordered)
-        bullet_char = "\u2013 "  # дефис «–» для маркированных
+        bullet_char = "\u2013 "  # дефис «–» по ГОСТ 2.105 для маркированных списков
         for i, item in enumerate(items, start=1):
             p = self._doc.add_paragraph()
             if not _try_apply_style(self._doc, p, style_name):
-                # Fallback: добавляем символ списка вручную
+                # Fallback: стиль из .dotx не найден — добавляем маркер вручную
                 prefix = f"{i}. " if ordered else bullet_char
                 p.add_run(f"{prefix}{item}")
                 _apply_body_fallback(p)

@@ -1,0 +1,52 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    project: gost34
+
+alerting:
+  alertmanagers: []
+
+rule_files:
+  - /etc/prometheus/alert_rules.yml
+
+scrape_configs:
+  # ── Auth Service ──────────────────────────────────────────────────────
+  - job_name: auth-service
+    static_configs:
+      - targets: ["auth-service:8001"]
+    metrics_path: /metrics
+
+  # ── Catalog Service ───────────────────────────────────────────────────
+  - job_name: catalog-service
+    static_configs:
+      - targets: ["catalog-service:8002"]
+    metrics_path: /metrics
+
+  # ── Generation Service ────────────────────────────────────────────────
+  - job_name: generation-service
+    static_configs:
+      - targets: ["generation-service:8003"]
+    metrics_path: /metrics
+
+  # ── Workflow Service ──────────────────────────────────────────────────
+  - job_name: workflow-service
+    static_configs:
+      - targets: ["workflow-service:8004"]
+    metrics_path: /metrics
+
+  # ── PMI Agent ─────────────────────────────────────────────────────────
+  - job_name: pmi-agent
+    static_configs:
+      - targets: ["pmi-agent:8006"]
+    metrics_path: /metrics
+
+  # ── Redis ─────────────────────────────────────────────────────────────
+  - job_name: redis
+    static_configs:
+      - targets: ["redis:6379"]
+
+  # ── Prometheus itself ─────────────────────────────────────────────────
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]

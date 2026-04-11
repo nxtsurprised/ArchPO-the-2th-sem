@@ -1,0 +1,50 @@
+groups:
+  - name: gost34_services
+    interval: 30s
+    rules:
+
+      # ── Сервис недоступен ─────────────────────────────────────────────
+      - alert: ServiceDown
+        expr: up == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Сервис {{ $labels.job }} недоступен"
+          description: "Prometheus не может получить метрики с {{ $labels.job }} более 1 минуты."
+
+      # ── Высокая латентность HTTP ──────────────────────────────────────
+      - alert: HighHttpLatency
+        expr: |
+          histogram_quantile(0.95,
+            rate(http_request_duration_seconds_bucket[5m])
+          ) > 2
+        for: 3m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Высокая латентность в {{ $labels.job }}"
+          description: "P95 latency = {{ $value | humanizeDuration }} на {{ $labels.handler }}."
+
+      # ── Высокий процент ошибок ────────────────────────────────────────
+      - alert: HighErrorRate
+        expr: |
+          rate(http_requests_total{status=~"5.."}[5m])
+          /
+          rate(http_requests_total[5m]) > 0.05
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Много 5xx в {{ $labels.job }}"
+          description: "Доля 5xx = {{ $value | humanizePercentage }} за последние 5 минут."
+
+      # ── Kafka consumer lag ────────────────────────────────────────────
+      - alert: KafkaConsumerLag
+        expr: kafka_consumer_group_lag > 100
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Kafka consumer lag слишком большой"
+          description: "Lag = {{ $value }} сообщений в группе {{ $labels.group }}."

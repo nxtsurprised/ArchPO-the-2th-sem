@@ -1,11 +1,12 @@
 from __future__ import annotations
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 from typing import Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
 
 from app.api.deps import verify_internal_secret
 from app.models.audit import AuditLog
+from app.models.document import Document
 from app.services.document_service import get_document, get_render_bundle, list_documents
 from app.services.function_service import list_functions
 
@@ -128,6 +129,79 @@ async def get_tz_context(project_id: str = Query(...)):
         "context": "\n\n".join(context_parts),
         "documents": doc_refs,
     }
+
+
+# ── Cold storage ───────────────────────────────────────────────────────────────
+
+@router.get(
+    "/internal/documents/archivable",
+    dependencies=[Depends(verify_internal_secret)],
+    summary="Список документов, готовых к архивированию",
+)
+async def list_archivable_documents(
+    days: int = Query(default=90, ge=1, description="Возраст документа в днях"),
+    limit: int = Query(default=100, ge=1, le=500),
+):
+    """
+    Возвращает документы, которые:
+    - имеют статус approved или rejected
+    - ещё не архивированы (archived=False)
+    - созданы более `days` дней назад
+    - имеют file_key (т.е. физический файл в MinIO)
+
+    Вызывается generation-service из фонового воркера архивирования.
+    """
+    cutoff = (datetime.now(timezone.utc) - timedelta(days=days)).isoformat()
+
+    docs = await Document.find(
+        {
+            "status": {"$in": ["approved", "rejected"]},
+            "archived": {"$ne": True},
+            "created_at": {"$lt": cutoff},
+        }
+    ).limit(limit).to_list()
+
+    return {
+        "items": [
+            {
+                "id": doc.id,
+                "name": doc.name,
+                "type": doc.type,
+                "status": doc.status,
+                "created_at": doc.created_at,
+                "project_id": doc.project_id,
+            }
+            for doc in docs
+        ],
+        "total": len(docs),
+    }
+
+
+class ArchiveRequest(BaseModel):
+    archive_key: str   # ключ объекта в archive bucket
+    archived_at: str   # ISO datetime
+
+
+@router.patch(
+    "/internal/documents/{doc_id}/archive",
+    dependencies=[Depends(verify_internal_secret)],
+    summary="Пометить документ как архивированный",
+)
+async def mark_document_archived(doc_id: str, body: ArchiveRequest):
+    """
+    Вызывается generation-service после успешного копирования файла
+    из documents bucket в documents-archive bucket.
+    """
+    doc = await Document.get(doc_id)
+    if not doc:
+        raise HTTPException(404, {"code": "NOT_FOUND", "message": "Document not found"})
+
+    doc.archived = True
+    doc.archived_at = body.archived_at
+    doc.archive_key = body.archive_key
+    await doc.save()
+
+    return {"ok": True, "document_id": doc_id, "archive_key": body.archive_key}
 
 
 @router.get(

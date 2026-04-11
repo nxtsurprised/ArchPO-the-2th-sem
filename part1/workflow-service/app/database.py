@@ -21,6 +21,11 @@ async def init_db(url: str | None = None) -> None:
     if url is None:
         url = get_settings().DATABASE_URL
     _engine = create_async_engine(url, echo=False)
+    # expire_on_commit=False: после commit() объекты не инвалидируются.
+    # Это позволяет читать атрибуты (approval.id, approval.status) после commit()
+    # без дополнительного SELECT в БД — безопасно для async, где "ленивая" загрузка
+    # недоступна. Обратная сторона: объекты могут содержать устаревшие данные между
+    # транзакциями — для этого approval_service использует _load_full() с populate_existing=True.
     _session_factory = async_sessionmaker(_engine, expire_on_commit=False, class_=AsyncSession)
 
 

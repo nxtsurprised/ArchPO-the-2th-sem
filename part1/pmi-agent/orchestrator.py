@@ -50,7 +50,11 @@ def _should_continue_executor(state: PMIAgentState) -> str:
 
 
 async def _increment_iteration(state: PMIAgentState) -> dict:
-    """Вспомогательный узел — увеличивает счетчик итераций."""
+    """Вспомогательный узел — увеличивает счетчик итераций.
+    Не используется в графе напрямую: счётчик инкрементируется внутри
+    _should_continue_executor при каждом вызове условного ребра.
+    Оставлен как запасной вариант если понадобится отдельный узел-счётчик.
+    """
     return {"iteration_count": state.get("iteration_count", 0) + 1}
 
 
@@ -110,7 +114,9 @@ def build_graph() -> StateGraph:
     return builder
 
 
-# Компилируем граф один раз при импорте модуля
+# Компилируем граф один раз при импорте модуля.
+# compile() преобразует StateGraph в исполняемый Runnable — это дорогая операция,
+# делать её на каждый запрос нельзя.
 _graph = build_graph().compile()
 
 
