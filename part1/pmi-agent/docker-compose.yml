@@ -123,6 +123,9 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=15d"
       - "--web.enable-lifecycle"
+    networks:
+      - default
+      - main
     healthcheck:
       test: ["CMD", "wget", "-qO-", "http://localhost:9090/-/healthy"]
       interval: 15s
@@ -189,3 +192,7 @@ volumes:
 networks:
   default:
     name: pmi-agent-network
+  # Внешняя сеть основного стека — нужна Prometheus для scrape pmi-agent:8006
+  main:
+    external: true
+    name: part1_default
