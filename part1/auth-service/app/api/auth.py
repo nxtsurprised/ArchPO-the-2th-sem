@@ -1,4 +1,3 @@
-from __future__ import annotations
 from fastapi import APIRouter, Depends, Request, Response, HTTPException, status, Cookie
 from sqlalchemy.ext.asyncio import AsyncSession
 
