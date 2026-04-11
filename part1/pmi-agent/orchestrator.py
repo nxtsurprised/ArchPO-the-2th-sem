@@ -190,11 +190,13 @@ async def run_draft_pipeline(
         status=final_state.get("status"),
     )
 
+    test_plan = final_state.get("test_plan") or {}
     return {
         "status": final_state.get("status"),
         "pmi_section": final_state.get("pmi_section"),
         "error": final_state.get("error"),
-        "test_plan": final_state.get("test_plan"),
+        "test_plan": test_plan,
+        "used_fallback": bool(test_plan.get("_fallback")),
     }
 
 

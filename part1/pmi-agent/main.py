@@ -31,7 +31,7 @@ logger = structlog.get_logger(__name__)
 # ─── Метрики Prometheus ───────────────────────────────────────────────────
 pmi_runs_total = Counter(
     "pmi_runs_total",
-    "Общее количество запусков PMI-пайплайна",
+    "Общее количество запусков PMI-пайплайна (полный, с браузером)",
     ["status"],
 )
 pmi_duration = Histogram(
@@ -43,6 +43,20 @@ pmi_verdicts = Counter(
     "pmi_verdicts_total",
     "Количество вердиктов по результатам испытаний",
     ["verdict"],
+)
+pmi_draft_total = Counter(
+    "pmi_draft_total",
+    "Количество черновых составлений методики (без браузера)",
+    ["status"],
+)
+pmi_draft_duration = Histogram(
+    "pmi_draft_duration_seconds",
+    "Продолжительность составления черновика методики",
+    buckets=[5, 15, 30, 60, 120, 300, 600],
+)
+pmi_fallback_total = Counter(
+    "pmi_fallback_total",
+    "Количество срабатываний fallback (LLM не ответил)",
 )
 
 
@@ -296,16 +310,23 @@ async def _draft_one_function(task_id: str, request: DraftFunctionRequest) -> No
         section = result.get("pmi_section") or {}
         await save_pmi_results(request.document_id, {request.function_id: section})
 
+        duration = round(time.time() - start, 1)
         _fn_tasks[task_id].update({
             "status": "done",
             "pmi_section": section,
-            "duration_sec": round(time.time() - start, 1),
+            "duration_sec": duration,
         })
+        pmi_draft_total.labels(status="done").inc()
+        pmi_draft_duration.observe(duration)
+        if result.get("used_fallback"):
+            pmi_fallback_total.inc()
+
         logger.info("fn_drafted", task_id=task_id, function_id=request.function_id,
-                    duration=_fn_tasks[task_id]["duration_sec"])
+                    duration=duration)
 
     except Exception as exc:
         _fn_tasks[task_id].update({"status": "failed", "error": str(exc)})
+        pmi_draft_total.labels(status="failed").inc()
         logger.error("fn_draft_failed", task_id=task_id,
                      function_id=request.function_id, error=str(exc))
 
