@@ -436,8 +436,19 @@ services:
     restart: unless-stopped
 
   # ============================================================
-  # Observability: Prometheus + Grafana + Loki + Promtail
+  # Observability: Prometheus + Alertmanager + Grafana + Loki + Promtail
   # ============================================================
+  alertmanager:
+    image: prom/alertmanager:v0.27.0
+    ports:
+      - "9093:9093"
+    volumes:
+      - ./observability/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+    command:
+      - "--config.file=/etc/alertmanager/alertmanager.yml"
+      - "--storage.path=/alertmanager"
+    restart: unless-stopped
+
   prometheus:
     image: prom/prometheus:v2.50.1
     ports:
@@ -451,6 +462,8 @@ services:
       - "--storage.tsdb.path=/prometheus"
       - "--storage.tsdb.retention.time=15d"
       - "--web.enable-lifecycle"
+    depends_on:
+      - alertmanager
     restart: unless-stopped
 
   grafana:

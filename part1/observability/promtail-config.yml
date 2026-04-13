@@ -9,7 +9,7 @@ clients:
   - url: http://loki:3100/loki/api/v1/push
 
 scrape_configs:
-  - job_name: gost34-containers
+  - job_name: containers
     docker_sd_configs:
       - host: unix:///var/run/docker.sock
         refresh_interval: 5s
@@ -29,22 +29,12 @@ scrape_configs:
         target_label: "container"
       - source_labels: ["__meta_docker_container_label_com_docker_compose_service"]
         target_label: "service"
-      - source_labels: ["__meta_docker_container_label_com_docker_compose_project"]
-        target_label: "project"
 
     pipeline_stages:
-      # Парсим JSON-логи structlog
       - json:
           expressions:
             level: level
             event: event
-            request_id: request_id
-            service: service
       - labels:
           level:
           event:
-          service:
-      # Нормализуем уровни логирования
-      - template:
-          source: level
-          template: '{{ ToLower .Value }}'

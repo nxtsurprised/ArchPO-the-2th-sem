@@ -13,5 +13,11 @@ datasources:
     access: proxy
     url: http://loki:3100
     editable: false
+
+  - name: Alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    editable: false
     jsonData:
-      maxLines: 1000
+      implementation: prometheus

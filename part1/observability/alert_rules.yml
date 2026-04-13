@@ -1,9 +1,9 @@
 groups:
-  - name: gost34_services
+  - name: services
     interval: 30s
     rules:
 
-      # ── Сервис недоступен ─────────────────────────────────────────────
+      # ── Любой сервис недоступен ───────────────────────────────────────────
       - alert: ServiceDown
         expr: up == 0
         for: 1m
@@ -11,40 +11,38 @@ groups:
           severity: critical
         annotations:
           summary: "Сервис {{ $labels.job }} недоступен"
-          description: "Prometheus не может получить метрики с {{ $labels.job }} более 1 минуты."
+          description: "Prometheus не получает метрики с {{ $labels.job }} более 1 минуты."
 
-      # ── Высокая латентность HTTP ──────────────────────────────────────
-      - alert: HighHttpLatency
-        expr: |
-          histogram_quantile(0.95,
-            rate(http_request_duration_seconds_bucket[5m])
-          ) > 2
-        for: 3m
+  - name: pmi_agent
+    interval: 30s
+    rules:
+
+      # ── LLM fallback слишком часто ────────────────────────────────────────
+      - alert: HighFallbackRate
+        expr: increase(pmi_fallback_total[10m]) >= 3
+        for: 0m
         labels:
           severity: warning
         annotations:
-          summary: "Высокая латентность в {{ $labels.job }}"
-          description: "P95 latency = {{ $value | humanizeDuration }} на {{ $labels.handler }}."
+          summary: "LLM часто уходит в fallback"
+          description: "За последние 10 минут fallback сработал {{ $value }} раз(а)."
 
-      # ── Высокий процент ошибок ────────────────────────────────────────
-      - alert: HighErrorRate
-        expr: |
-          rate(http_requests_total{status=~"5.."}[5m])
-          /
-          rate(http_requests_total[5m]) > 0.05
+      # ── Пайплайн завершился ошибкой ───────────────────────────────────────
+      - alert: PipelineFailure
+        expr: increase(pmi_runs_total{status="failed"}[10m]) >= 1
+        for: 0m
+        labels:
+          severity: error
+        annotations:
+          summary: "PMI-пайплайн завершился с ошибкой"
+          description: "За последние 10 минут зафиксировано {{ $value }} упавших запусков."
+
+      # ── Черновой прогон слишком долго ─────────────────────────────────────
+      - alert: SlowDraftPipeline
+        expr: histogram_quantile(0.95, rate(pmi_draft_duration_seconds_bucket[15m])) > 400
         for: 2m
         labels:
           severity: warning
         annotations:
-          summary: "Много 5xx в {{ $labels.job }}"
-          description: "Доля 5xx = {{ $value | humanizePercentage }} за последние 5 минут."
-
-      # ── Kafka consumer lag ────────────────────────────────────────────
-      - alert: KafkaConsumerLag
-        expr: kafka_consumer_group_lag > 100
-        for: 5m
-        labels:
-          severity: warning
-        annotations:
-          summary: "Kafka consumer lag слишком большой"
-          description: "Lag = {{ $value }} сообщений в группе {{ $labels.group }}."
+          summary: "Составление черновика занимает слишком долго"
+          description: "p95 времени draft-пайплайна превысил 400 секунд."
