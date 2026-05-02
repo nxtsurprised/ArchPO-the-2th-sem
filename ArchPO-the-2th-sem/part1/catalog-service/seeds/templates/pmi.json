@@ -1,0 +1,123 @@
+{
+  "_id": "tmpl-pmi-001",
+  "type": "pmi",
+  "name": "Программа и методика испытаний (ГОСТ 34.603-92)",
+  "gost_ref": "ГОСТ 34.603-92",
+  "output_format": "docx",
+  "is_system": true,
+  "parent_id": null,
+  "project_id": null,
+  "dotx_file_key": "dotx/gost-2105-template.dotx",
+  "formatting": {
+    "font": "Times New Roman",
+    "font_size": 14,
+    "margins": {
+      "top": 20,
+      "bottom": 20,
+      "left": 30,
+      "right": 15
+    },
+    "line_spacing": 1.5,
+    "gost_ref": "ГОСТ 2.105-2019"
+  },
+  "sections": [
+    {
+      "number": "1",
+      "title": "Объект испытаний",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "system_name",
+          "label": "Наименование системы",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "system_version",
+          "label": "Версия системы",
+          "type": "text",
+          "required": false
+        }
+      ]
+    },
+    {
+      "number": "2",
+      "title": "Цель испытаний",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "test_goal",
+          "label": "Цель проведения испытаний",
+          "type": "textarea",
+          "required": true
+        }
+      ]
+    },
+    {
+      "number": "3",
+      "title": "Требования к программе испытаний",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "test_env",
+          "label": "Требования к тестовой среде",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "test_data_req",
+          "label": "Требования к тестовым данным",
+          "type": "textarea",
+          "required": false
+        }
+      ]
+    },
+    {
+      "number": "4",
+      "title": "Состав и порядок испытаний",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "test_sequence",
+          "label": "Последовательность проведения испытаний",
+          "type": "list",
+          "required": false
+        }
+      ]
+    },
+    {
+      "number": "5",
+      "title": "Методы испытаний",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "test_methods",
+          "label": "Методы проведения испытаний",
+          "type": "textarea",
+          "required": false
+        }
+      ]
+    },
+    {
+      "number": "6",
+      "title": "Тест-кейсы по функциям",
+      "source": "functions",
+      "render_rule": "functions_test_cases",
+      "function_template": {
+        "heading": "{{function.code}} {{function.name}}",
+        "criteria": "{{function.test_params.criteria}}",
+        "expected": "{{function.test_params.expected_result}}"
+      }
+    },
+    {
+      "number": "7",
+      "title": "Критерии приёмки",
+      "source": "static",
+      "static_content": "Система считается принятой при успешном выполнении всех тест-кейсов раздела 6 настоящей ПМИ."
+    }
+  ],
+  "version": 1,
+  "created_by": "system",
+  "created_at": "2024-01-01T00:00:00+00:00",
+  "updated_at": "2024-01-01T00:00:00+00:00"
+}

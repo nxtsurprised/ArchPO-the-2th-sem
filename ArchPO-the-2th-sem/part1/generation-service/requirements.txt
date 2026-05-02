@@ -1,0 +1,16 @@
+fastapi==0.109.2
+uvicorn[standard]==0.27.1
+pydantic==2.6.1
+pydantic-settings==2.2.1
+PyJWT==2.8.0
+cryptography==42.0.4
+structlog==24.1.0
+httpx==0.26.0
+python-docx==1.1.2
+openpyxl==3.1.2
+minio==7.2.5
+pytest==8.0.2
+pytest-asyncio==0.23.5
+aiosqlite==0.20.0
+redis>=5.0.0
+prometheus-fastapi-instrumentator>=6.1.0

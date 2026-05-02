@@ -1,0 +1,116 @@
+# PMI Agent Service — мультиагентная система автоматизированного тестирования
+# Стек: Ollama (LLM), ChromaDB (RAG), Playwright (встроен в pmi-agent), Prometheus+Grafana+Loki (observability)
+
+services:
+
+  # ─── LLM ──────────────────────────────────────────────────────────────────
+  ollama:
+    image: ollama/ollama:latest
+    container_name: ollama
+    restart: unless-stopped
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    environment:
+      - OLLAMA_NUM_PARALLEL=2
+      - OLLAMA_MAX_LOADED_MODELS=1
+    # Раскомментировать при наличии GPU:
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [gpu]
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+
+  # ─── Загрузка модели при старте ───────────────────────────────────────────
+  ollama-init:
+    image: ollama/ollama:latest
+    container_name: ollama-init
+    depends_on:
+      ollama:
+        condition: service_healthy
+    entrypoint: >
+      sh -c "
+        ollama pull mistral:7b-instruct &&
+        echo 'Model loaded successfully'
+      "
+    environment:
+      - OLLAMA_HOST=http://ollama:11434
+    restart: "no"
+
+  # ─── Векторная БД (RAG) ───────────────────────────────────────────────────
+  chromadb:
+    image: chromadb/chroma:0.5.0
+    container_name: chromadb
+    restart: unless-stopped
+    ports:
+      - "8005:8000"
+    volumes:
+      - chromadb_data:/chroma/chroma
+    environment:
+      - CHROMA_SERVER_AUTHN_PROVIDER=chromadb.auth.token_authn.TokenAuthenticationServerProvider
+      - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_TOKEN:-pmi-chroma-token}
+      - IS_PERSISTENT=TRUE
+      - ANONYMIZED_TELEMETRY=FALSE
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  # ─── PMI Agent (основное приложение) ─────────────────────────────────────
+  # Браузер (Chromium) встроен в образ mcr.microsoft.com/playwright/python
+  # Изоляция обеспечивается контейнером Docker (+ seccomp/gVisor в prod)
+  pmi-agent:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: pmi-agent
+    restart: unless-stopped
+    ports:
+      - "8006:8006"
+    depends_on:
+      ollama:
+        condition: service_healthy
+      chromadb:
+        condition: service_healthy
+    shm_size: "1gb"
+    environment:
+      - OLLAMA_BASE_URL=http://ollama:11434
+      - OLLAMA_MODEL=${OLLAMA_MODEL:-mistral:7b-instruct}
+      - CHROMA_HOST=chromadb
+      - CHROMA_PORT=8000
+      - CHROMA_TOKEN=${CHROMA_TOKEN:-pmi-chroma-token}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL:-http://auth-service:8001}
+      - CATALOG_SERVICE_URL=${CATALOG_SERVICE_URL:-http://catalog-service:8002}
+      - GENERATION_SERVICE_URL=${GENERATION_SERVICE_URL:-http://generation-service:8003}
+      - WORKFLOW_SERVICE_URL=${WORKFLOW_SERVICE_URL:-http://workflow-service:8004}
+      - SECRET_KEY=${SECRET_KEY:-dev-secret-key}
+      - LANGCHAIN_TRACING_V2=${LANGCHAIN_TRACING_V2:-false}
+      - LANGCHAIN_API_KEY=${LANGCHAIN_API_KEY:-}
+      - LOG_LEVEL=${LOG_LEVEL:-INFO}
+    volumes:
+      - .:/app                             # исходники — изменения без пересборки
+      - pmi_outputs:/app/outputs           # outputs поверх bind mount
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # Observability перенесён в основной part1/docker-compose.yml
+
+volumes:
+  ollama_data:
+  chromadb_data:
+  pmi_outputs:

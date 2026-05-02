@@ -1,0 +1,143 @@
+{
+  "_comment": "Пример ответа GET /internal/documents/:id/render-bundle. Используется Generation Service для рендера .docx / .xlsx. Заголовок: X-Internal-Secret: internal_secret",
+
+  "template": {
+    "sections": [
+      {
+        "number": "1",
+        "title": "Общие сведения",
+        "source": "manual",
+        "fields": [
+          { "key": "system_name",   "label": "Полное наименование системы", "type": "text",     "required": true  },
+          { "key": "customer_name", "label": "Заказчик",                    "type": "text",     "required": true  },
+          { "key": "deadlines",     "label": "Плановые сроки",              "type": "date_range","required": false }
+        ]
+      },
+      {
+        "number": "4.2",
+        "title": "Требования к функциям (задачам)",
+        "source": "functions",
+        "render_rule": "functions_grouped_by_subsystem",
+        "function_template": {
+          "heading":           "{{function.code}} {{function.name}}",
+          "body":              "{{function.description}}",
+          "requirements_list": "{{function.requirements}}"
+        }
+      },
+      {
+        "number": "5",
+        "title": "Состав и содержание работ по созданию системы",
+        "source": "subsystems",
+        "render_rule": "subsystems_list"
+      }
+    ],
+    "formatting": {
+      "font": "Times New Roman",
+      "font_size": 14,
+      "margins": { "top": 20, "bottom": 20, "left": 30, "right": 15 },
+      "line_spacing": 1.5,
+      "gost_ref": "ГОСТ 2.105-2019"
+    }
+  },
+
+  "dotx_key": "templates/dotx-gost34-tz.dotx",
+
+  "data": {
+    "sections": {
+      "1": {
+        "system_name":    "ГИС ЖКХ",
+        "customer_name":  "Минстрой России",
+        "contractor_name": "ООО СофтДев",
+        "deadlines":      "2026-01-01 — 2026-12-31"
+      },
+      "4.3": {
+        "software_req": "Astra Linux SE 1.7, PostgreSQL 16, MongoDB 7",
+        "hardware_req":  "Сервер: 8 CPU, 32 GB RAM, SSD 500 GB"
+      }
+    }
+  },
+
+  "functions": [
+    {
+      "id": "f1b2c3d4-0001-0000-0000-000000000001",
+      "project_id": "aaaaaaaa-0000-0000-0000-000000000001",
+      "subsystem_id": "s1b2c3d4-0001-0000-0000-000000000001",
+      "code": "ФБ-01",
+      "name": "Аутентификация пользователей",
+      "category": "security",
+      "priority": "must",
+      "status": "active",
+      "complexity": "medium",
+      "description": "Система должна обеспечивать многофакторную аутентификацию.",
+      "requirements": [
+        { "id": "req-001", "text": "Поддержка входа по логину и паролю", "type": "functional" },
+        { "id": "req-002", "text": "Политика паролей: минимум 8 символов", "type": "functional" }
+      ],
+      "cost_params": { "labor_hours": 40, "rate_per_hour": 3500, "complexity_coeff": 1.2, "overhead_coeff": 1.15 },
+      "tags": ["auth", "security"],
+      "version": 1
+    },
+    {
+      "id": "f1b2c3d4-0002-0000-0000-000000000001",
+      "project_id": "aaaaaaaa-0000-0000-0000-000000000001",
+      "subsystem_id": "s1b2c3d4-0001-0000-0000-000000000001",
+      "code": "ФБ-02",
+      "name": "Журналирование действий пользователей",
+      "category": "security",
+      "priority": "should",
+      "status": "active",
+      "complexity": "low",
+      "description": "Система должна вести журнал всех действий пользователей с сохранением контекста.",
+      "requirements": [
+        { "id": "req-003", "text": "Каждое действие записывается с timestamp и user_id", "type": "functional" }
+      ],
+      "cost_params": { "labor_hours": 16, "rate_per_hour": 3500, "complexity_coeff": 1.0, "overhead_coeff": 1.15 },
+      "tags": ["audit", "security"],
+      "version": 1
+    }
+  ],
+
+  "subsystems": [
+    {
+      "id": "s1b2c3d4-0001-0000-0000-000000000001",
+      "project_id": "aaaaaaaa-0000-0000-0000-000000000001",
+      "code": "ПБ",
+      "name": "Подсистема информационной безопасности",
+      "description": "Обеспечивает защиту информации и аутентификацию пользователей",
+      "order": 1,
+      "tz_section_prefix": "4.2.1"
+    },
+    {
+      "id": "s1b2c3d4-0002-0000-0000-000000000001",
+      "project_id": "aaaaaaaa-0000-0000-0000-000000000001",
+      "code": "АДМ",
+      "name": "Подсистема администрирования",
+      "description": "Управление пользователями, ролями и настройками системы",
+      "order": 2,
+      "tz_section_prefix": "4.2.2"
+    }
+  ],
+
+  "rates": {
+    "id": "r1b2c3d4-0001-0000-0000-000000000001",
+    "project_id": "aaaaaaaa-0000-0000-0000-000000000001",
+    "default_rate_per_hour": 3500.0,
+    "complexity_coefficients": {
+      "low": 1.0,
+      "medium": 1.2,
+      "high": 1.5,
+      "critical": 2.0
+    },
+    "overhead_coefficient": 1.15,
+    "vat_rate": 0.20,
+    "profit_margin": 0.15,
+    "updated_by": "bbbbbbbb-0000-0000-0000-000000000001",
+    "updated_at": "2026-03-10T12:00:00+00:00"
+  },
+
+  "project": {
+    "id": "aaaaaaaa-0000-0000-0000-000000000001"
+  },
+
+  "_fetch_real": "curl -s http://localhost:8002/internal/documents/<DOC_ID>/render-bundle -H 'X-Internal-Secret: internal_secret' | python3 -m json.tool > docs/render-bundle-example.json"
+}

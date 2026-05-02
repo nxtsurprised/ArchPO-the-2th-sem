@@ -1,0 +1,221 @@
+{
+  "_id": "tmpl-tz-001",
+  "type": "tz",
+  "name": "Техническое задание (ГОСТ 34.602-2020)",
+  "gost_ref": "ГОСТ 34.602-2020",
+  "output_format": "docx",
+  "is_system": true,
+  "parent_id": null,
+  "project_id": null,
+  "dotx_file_key": "dotx/gost-2105-template.dotx",
+  "formatting": {
+    "font": "Times New Roman",
+    "font_size": 14,
+    "margins": {
+      "top": 20,
+      "bottom": 20,
+      "left": 30,
+      "right": 15
+    },
+    "line_spacing": 1.5,
+    "gost_ref": "ГОСТ 2.105-2019"
+  },
+  "sections": [
+    {
+      "number": "1",
+      "title": "Общие сведения",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "system_name",
+          "label": "Полное наименование системы",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "customer_name",
+          "label": "Заказчик",
+          "type": "text",
+          "required": true
+        },
+        {
+          "key": "contractor_name",
+          "label": "Исполнитель",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "contract_basis",
+          "label": "Основание для разработки",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "deadlines",
+          "label": "Плановые сроки",
+          "type": "date_range",
+          "required": false
+        }
+      ]
+    },
+    {
+      "number": "2",
+      "title": "Назначение и цели создания системы",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "purpose",
+          "label": "Назначение системы",
+          "type": "textarea",
+          "required": true
+        },
+        {
+          "key": "goals",
+          "label": "Цели создания системы",
+          "type": "list",
+          "required": true
+        }
+      ]
+    },
+    {
+      "number": "3",
+      "title": "Характеристика объектов автоматизации",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "object_description",
+          "label": "Описание объекта автоматизации",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "current_state",
+          "label": "Текущее состояние",
+          "type": "textarea",
+          "required": false
+        }
+      ]
+    },
+    {
+      "number": "4.1",
+      "title": "Требования к системе в целом",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "structural_req",
+          "label": "Требования к структуре и функционированию",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "users_count",
+          "label": "Численность и квалификация пользователей",
+          "type": "text",
+          "required": false
+        },
+        {
+          "key": "reliability_req",
+          "label": "Требования к надёжности",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "security_req",
+          "label": "Требования к безопасности",
+          "type": "textarea",
+          "required": false
+        }
+      ]
+    },
+    {
+      "number": "4.2",
+      "title": "Требования к функциям (задачам)",
+      "source": "functions",
+      "render_rule": "functions_grouped_by_subsystem",
+      "function_template": {
+        "heading": "{{function.code}} {{function.name}}",
+        "body": "{{function.description}}",
+        "requirements_list": "{{function.requirements}}"
+      }
+    },
+    {
+      "number": "4.3",
+      "title": "Требования к видам обеспечения",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "math_req",
+          "label": "Математическое обеспечение",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "info_req",
+          "label": "Информационное обеспечение",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "software_req",
+          "label": "Программное обеспечение",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "hardware_req",
+          "label": "Техническое обеспечение",
+          "type": "textarea",
+          "required": false
+        }
+      ]
+    },
+    {
+      "number": "5",
+      "title": "Состав и содержание работ по созданию системы",
+      "source": "subsystems",
+      "render_rule": "subsystems_list"
+    },
+    {
+      "number": "6",
+      "title": "Порядок контроля и приёмки системы",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "acceptance_procedure",
+          "label": "Порядок приёмки",
+          "type": "textarea",
+          "required": false
+        },
+        {
+          "key": "acceptance_criteria",
+          "label": "Критерии приёмки",
+          "type": "list",
+          "required": false
+        }
+      ]
+    },
+    {
+      "number": "7",
+      "title": "Требования к документированию",
+      "source": "static",
+      "static_content": "Документация на систему должна быть выполнена в соответствии с ГОСТ 2.105-2019 «Общие требования к текстовым документам»."
+    },
+    {
+      "number": "8",
+      "title": "Источники разработки",
+      "source": "manual",
+      "fields": [
+        {
+          "key": "sources",
+          "label": "Документы и информационные материалы",
+          "type": "list",
+          "required": false
+        }
+      ]
+    }
+  ],
+  "version": 1,
+  "created_by": "system",
+  "created_at": "2024-01-01T00:00:00+00:00",
+  "updated_at": "2024-01-01T00:00:00+00:00"
+}

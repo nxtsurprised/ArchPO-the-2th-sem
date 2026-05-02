@@ -1,0 +1,48 @@
+groups:
+  - name: pmi_agent
+    interval: 30s
+    rules:
+
+      # ── LLM fallback слишком часто ────────────────────────────────────────
+      - alert: HighFallbackRate
+        expr: |
+          increase(pmi_fallback_total[10m]) >= 3
+        for: 0m
+        labels:
+          severity: warning
+        annotations:
+          summary: "LLM часто уходит в fallback"
+          description: "За последние 10 минут fallback сработал {{ $value }} раз(а). LLM нестабилен или перегружен."
+
+      # ── Пайплайн завершился ошибкой ───────────────────────────────────────
+      - alert: PipelineFailure
+        expr: |
+          increase(pmi_runs_total{status="failed"}[10m]) >= 1
+        for: 0m
+        labels:
+          severity: error
+        annotations:
+          summary: "PMI-пайплайн завершился с ошибкой"
+          description: "За последние 10 минут зафиксировано {{ $value }} упавших запусков."
+
+      # ── Агент долго не отвечает (нет scrape) ─────────────────────────────
+      - alert: AgentDown
+        expr: up{job="pmi-agent"} == 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "PMI-агент недоступен"
+          description: "Prometheus не может получить метрики с pmi-agent более 1 минуты."
+
+      # ── Черновой прогон слишком долго ─────────────────────────────────────
+      - alert: SlowDraftPipeline
+        expr: |
+          histogram_quantile(0.95, rate(pmi_draft_duration_seconds_bucket[15m])) > 400
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Составление черновика занимает слишком долго"
+          description: "95-й перцентиль времени draft-пайплайна превысил 400 секунд."
+

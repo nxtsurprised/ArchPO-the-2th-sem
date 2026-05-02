@@ -1,0 +1,46 @@
+services:
+  workflow-service:
+    build:
+      context: ..
+      dockerfile: workflow-service/Dockerfile
+    container_name: workflow-service
+    ports:
+      - "8004:8004"
+    environment:
+      DB_HOST: workflow-postgres
+      DB_PORT: 5432
+      DB_NAME: workflow_db
+      DB_USER: workflow_user
+      DB_PASSWORD: workflow_pass
+      JWKS_URL: http://auth-service:8001/.well-known/jwks.json
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-internal_secret}
+      CATALOG_INTERNAL_URL: http://catalog-service:8002
+    depends_on:
+      workflow-postgres:
+        condition: service_healthy
+    networks:
+      - workflow-net
+
+  workflow-postgres:
+    image: postgres:16-alpine
+    container_name: workflow-postgres
+    environment:
+      POSTGRES_DB: workflow_db
+      POSTGRES_USER: workflow_user
+      POSTGRES_PASSWORD: workflow_pass
+    volumes:
+      - workflow-postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U workflow_user -d workflow_db"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - workflow-net
+
+networks:
+  workflow-net:
+    driver: bridge
+
+volumes:
+  workflow-postgres-data:
