@@ -1,0 +1,21 @@
+# Placeholder values для будущего deployment Cluster Autoscaler.
+# Реальное масштабирование нод требует инфраструктурный backend,
+# например cloud provider integration или Cluster API provider.
+# Не добавляйте сюда учетные данные.
+
+cloudProvider: "<provider-or-clusterapi>"
+autoDiscovery:
+  clusterName: "archpo-local"
+
+extraArgs:
+  scale-down-enabled: "true"
+  skip-nodes-with-local-storage: "false"
+
+rbac:
+  create: true
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+nodeGroups: []
