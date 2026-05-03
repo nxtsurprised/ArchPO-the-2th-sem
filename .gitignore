@@ -100,3 +100,17 @@ logs/
 .cache/
 tmp/
 temp/
+
+# ─── Kubernetes / локальное состояние платформы ─────────────────────────
+kubeconfig*
+*.kubeconfig
+*.tfstate
+*.tfstate.*
+terraform.tfvars
+*.tfvars.local
+*.tfplan
+crash.log
+crash.*.log
+.terraform/
+.terraform.lock.hcl
+*.retry

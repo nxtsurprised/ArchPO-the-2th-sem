@@ -1,0 +1,12 @@
+---
+kafka_namespace: kafka
+kafka_cluster_name: archpo-kafka
+kafka_topic_name: gost34.workflow.events
+kafka_replicas: 1
+kafka_storage_type: ephemeral
+kafka_topic_partitions: 1
+kafka_topic_replicas: 1
+
+strimzi_version: "0.45.0"
+strimzi_operator_manifest_url: "https://github.com/strimzi/strimzi-kafka-operator/releases/download/{{ strimzi_version }}/strimzi-cluster-operator-{{ strimzi_version }}.yaml"
+strimzi_operator_manifest_path: "/tmp/strimzi-cluster-operator-{{ strimzi_version }}-{{ kafka_namespace }}.yaml"
