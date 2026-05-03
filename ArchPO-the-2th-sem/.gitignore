@@ -106,5 +106,11 @@ kubeconfig*
 *.kubeconfig
 *.tfstate
 *.tfstate.*
+terraform.tfvars
+*.tfvars.local
+*.tfplan
+crash.log
+crash.*.log
 .terraform/
 .terraform.lock.hcl
+*.retry
