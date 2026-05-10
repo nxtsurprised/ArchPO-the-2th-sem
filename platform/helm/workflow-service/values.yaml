@@ -1,8 +1,8 @@
 replicaCount: 1
 
 image:
-  repository: "local-registry.infra.svc.cluster.local:5000/workflow-service"
-  tag: "dev"
+  repository: "k3d-archpo-registry:5000/workflow-service"
+  tag: "manual-test"
   pullPolicy: IfNotPresent
 
 nameOverride: ""
