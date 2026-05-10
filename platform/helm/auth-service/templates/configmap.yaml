@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "auth-service.fullname" . }}-config
+  namespace: {{ .Values.namespaceOverride | default .Release.Namespace }}
+  labels:
+    {{- include "auth-service.labels" . | nindent 4 }}
+data:
+  {{- range $key, $value := .Values.env }}
+  {{ $key }}: {{ $value | quote }}
+  {{- end }}
+  {{- if .Values.connections.redis.enabled }}
+  REDIS_URL: {{ .Values.connections.redis.url | quote }}
+  {{- end }}
+  {{- if .Values.connections.postgres.enabled }}
+  DB_HOST: {{ .Values.connections.postgres.host | quote }}
+  DB_PORT: {{ .Values.connections.postgres.port | quote }}
+  DB_NAME: {{ .Values.connections.postgres.database | quote }}
+  {{- end }}

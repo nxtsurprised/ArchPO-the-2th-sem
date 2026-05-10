@@ -1,0 +1,89 @@
+replicaCount: 1
+
+image:
+  repository: "local-registry.infra.svc.cluster.local:5000/catalog-service"
+  tag: "dev"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+namespaceOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8002"
+  prometheus.io/path: "/metrics"
+
+service:
+  type: ClusterIP
+  port: 8002
+
+env:
+  LOG_LEVEL: INFO
+  ENVIRONMENT: local
+  APP_VERSION: "1.0.0"
+  AUTH_SERVICE_URL: http://auth-service:8001
+  WORKFLOW_SERVICE_URL: http://workflow-service:8004
+
+connections:
+  kafka:
+    enabled: true
+    bootstrapServers: archpo-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+  redis:
+    enabled: true
+    url: redis://redis.databases.svc.cluster.local:6379/0
+  postgres:
+    enabled: false
+    host: postgres.databases.svc.cluster.local
+    port: 5432
+    database: catalog_db
+    existingSecret: postgres-secret
+  mongodb:
+    enabled: true
+    host: mongo.databases.svc.cluster.local
+    port: 27017
+    database: catalog_db
+    uriExistingSecret: mongo-secret
+  minio:
+    enabled: false
+    endpoint: http://minio.databases.svc.cluster.local:9000
+    existingSecret: minio-secret
+  chroma:
+    enabled: false
+    url: http://chroma.databases.svc.cluster.local:8005
+  ollama:
+    enabled: false
+    url: http://ollama.infra.svc.cluster.local:11434
+
+existingSecrets:
+  appShared: app-shared-secrets
+  jwt: jwt-secrets
+  mongo: mongo-secret
+  redis: redis-secret
+
+secretEnv:
+  create: false
+  data: {}
+
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+probes:
+  path: /health
+  initialDelaySeconds: 20
+  periodSeconds: 10
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 3
+  targetCPUUtilizationPercentage: 70

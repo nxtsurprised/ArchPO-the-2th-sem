@@ -11,6 +11,7 @@
 - Документация по Cluster Autoscaler как выбранному подходу к автомасштабированию worker-нод.
 - Istio Service Mesh, Istio Ingress Gateway и gateway-level rate limiting для Block 3.
 - Kubernetes observability: Prometheus, Alertmanager, Loki, Promtail, Grafana, OpenTelemetry Collector и Tempo для Block 4.
+- Локальный CI/CD-контур для Block 5: GitHub Actions Self-Hosted Runner, Kaniko, local registry, Helm charts и ArgoCD GitOps sync.
 
 В репозиторий не добавляются облачные учетные данные, kubeconfig-файлы, секреты или сгенерированное состояние кластера.
 
@@ -349,6 +350,120 @@ kubectl -n observability logs job/observability-test-logs
 - Хранилища Prometheus, Loki, Tempo и Grafana используют `emptyDir`, поэтому данные не переживают пересоздание Pod.
 - Реальные email, Telegram или Slack receivers для Alertmanager не настраиваются, чтобы не добавлять secrets.
 - Полный AI monitoring не разворачивается: текущий scope документирует PMI Agent metrics, latency/errors/fallback counters и будущие LLM spans/quality dashboards.
+
+## Block 5: CI/CD и окружение разработки
+
+Block 5 добавляет локальный учебный pipeline для сборки и доставки образов в Kubernetes:
+
+- GitHub Actions Self-Hosted Runner выбран потому, что репозиторий находится на GitHub.
+- Kaniko используется для сборки images без Docker daemon, как требуется в задании.
+- Локальный Docker Registry разворачивается в Kubernetes в namespace `infra`.
+- Helm charts для `auth-service`, `catalog-service`, `generation-service` и `pmi-agent` лежат в `platform/helm/`.
+- ArgoCD child Applications указывают на реальные Helm chart paths и синхронизируют namespace `app`.
+
+CI/CD поток:
+
+1. Разработчик пушит изменения в код сервиса или запускает workflow вручную.
+2. Self-hosted runner стартует GitHub Actions workflow.
+3. Workflow запускает Kubernetes Job с Kaniko.
+4. Kaniko собирает image и пушит его в local registry.
+5. Workflow обновляет `image.repository` и `image.tag` в Helm `values.yaml`.
+6. Workflow коммитит изменение обратно в ветку `part-3` с `[skip ci]`.
+7. ArgoCD видит новый commit и синхронизирует Helm release.
+
+CI не применяет manifests напрямую через `kubectl apply`; деплой приложений остается GitOps-ответственностью ArgoCD.
+
+### Последовательность запуска Block 5
+
+1. Убедитесь, что k3d cluster запущен:
+
+```sh
+./platform/cluster/k3d/create-cluster.sh
+kubectl get nodes
+```
+
+2. Убедитесь, что Cilium здоров:
+
+```sh
+./platform/cluster/cilium/install-cilium.sh
+kubectl get pods -n kube-system
+```
+
+3. Убедитесь, что Terraform namespaces существуют:
+
+```sh
+cd platform/terraform
+terraform init
+terraform apply
+cd ../..
+kubectl get ns infra app argocd
+```
+
+4. Разверните local registry:
+
+```sh
+kubectl apply -f platform/cicd/registry/registry-pvc.yaml
+kubectl apply -f platform/cicd/registry/registry-deployment.yaml
+kubectl apply -f platform/cicd/registry/registry-service.yaml
+kubectl get pods -n infra
+```
+
+5. Проверьте registry через port-forward:
+
+```sh
+kubectl -n infra port-forward svc/local-registry 5000:5000
+curl http://localhost:5000/v2/_catalog
+```
+
+6. Зарегистрируйте self-hosted runner вручную по инструкции:
+
+```sh
+open platform/cicd/runner/setup-self-hosted-runner.md
+```
+
+Runner labels:
+
+```text
+self-hosted, local, k3d
+```
+
+7. Проверьте Helm charts:
+
+```sh
+platform/cicd/scripts/validate-helm-charts.sh
+```
+
+8. Убедитесь, что ArgoCD видит child Applications:
+
+```sh
+kubectl apply -f platform/argocd/root-app.yaml
+kubectl get applications -n argocd
+```
+
+9. Запустите workflow вручную в GitHub Actions:
+
+```text
+Actions -> Build images and update Helm values -> Run workflow
+```
+
+10. Проверьте результат:
+
+```sh
+kubectl get pods -n infra
+kubectl get pods -n app
+kubectl get applications -n argocd
+curl http://localhost:5000/v2/_catalog
+```
+
+Подробности находятся в `platform/cicd/README.md` и `platform/helm/README.md`.
+
+### Ограничения Block 5
+
+- Это локальный учебный CI/CD, не production pipeline.
+- GitHub runner registration token не хранится в репозитории и вводится вручную.
+- Для pull images из k3d nodes может потребоваться k3d registry integration; простой `localhost:5000` с хоста не всегда доступен изнутри node containers.
+- Kaniko выбран по требованию задания, но для production стоит отдельно оценить BuildKit, Buildah или Podman.
+- ArgoCD синхронизирует только изменения, которые уже запушены в Git.
 
 ## Как Читать
 

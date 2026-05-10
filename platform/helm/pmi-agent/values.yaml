@@ -1,0 +1,90 @@
+replicaCount: 1
+
+image:
+  repository: "local-registry.infra.svc.cluster.local:5000/pmi-agent"
+  tag: "dev"
+  pullPolicy: IfNotPresent
+
+nameOverride: ""
+fullnameOverride: ""
+namespaceOverride: ""
+
+serviceAccount:
+  create: true
+  annotations: {}
+
+podAnnotations:
+  prometheus.io/scrape: "true"
+  prometheus.io/port: "8006"
+  prometheus.io/path: "/metrics"
+
+service:
+  type: ClusterIP
+  port: 8006
+
+env:
+  LOG_LEVEL: INFO
+  ENVIRONMENT: local
+  OLLAMA_MODEL: mistral:7b-instruct
+  OLLAMA_TIMEOUT: "120"
+  TARGET_APP_URL: http://frontend:80
+  AUTH_SERVICE_URL: http://auth-service:8001
+  CATALOG_SERVICE_URL: http://catalog-service:8002
+  GENERATION_SERVICE_URL: http://generation-service:8003
+  WORKFLOW_SERVICE_URL: http://workflow-service:8004
+
+connections:
+  kafka:
+    enabled: false
+    bootstrapServers: archpo-kafka-kafka-bootstrap.kafka.svc.cluster.local:9092
+  redis:
+    enabled: true
+    url: redis://redis.databases.svc.cluster.local:6379/0
+  postgres:
+    enabled: false
+    host: postgres.databases.svc.cluster.local
+    port: 5432
+    database: pmi_agent
+    existingSecret: postgres-secret
+  mongodb:
+    enabled: false
+    uriExistingSecret: mongo-secret
+  minio:
+    enabled: false
+    endpoint: http://minio.databases.svc.cluster.local:9000
+    existingSecret: minio-secret
+  chroma:
+    enabled: true
+    url: http://chroma.databases.svc.cluster.local:8005
+    host: chroma.databases.svc.cluster.local
+    port: 8005
+  ollama:
+    enabled: true
+    url: http://ollama.infra.svc.cluster.local:11434
+
+existingSecrets:
+  appShared: app-shared-secrets
+  redis: redis-secret
+
+secretEnv:
+  create: false
+  data: {}
+
+resources:
+  requests:
+    cpu: 200m
+    memory: 512Mi
+  limits:
+    cpu: "1"
+    memory: 1Gi
+
+probes:
+  path: /health
+  initialDelaySeconds: 30
+  periodSeconds: 15
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 2
+  targetCPUUtilizationPercentage: 75

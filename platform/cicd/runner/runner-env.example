@@ -1,0 +1,5 @@
+GITHUB_REPOSITORY=nxtsurprised/ArchPO-the-2th-sem
+RUNNER_LABELS=self-hosted,local,k3d
+RUNNER_WORKDIR=_work
+# RUNNER_TOKEN is time-limited and must never be committed.
+RUNNER_TOKEN=replace-me

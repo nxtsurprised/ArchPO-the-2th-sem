@@ -1,0 +1,5 @@
+{{/*
+Catalog Service
+URL in cluster: http://{{ include "catalog-service.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+Image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+*/}}

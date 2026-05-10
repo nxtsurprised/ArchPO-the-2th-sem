@@ -1,0 +1,72 @@
+name: Build images and update Helm values
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "part1/auth-service/**"
+      - "part1/catalog-service/**"
+      - "part1/generation-service/**"
+      - "part1/pmi-agent/**"
+      - "platform/helm/**"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-update:
+    name: Build ${{ matrix.service }} with Kaniko
+    if: github.event_name == 'workflow_dispatch' || !contains(github.event.head_commit.message, '[skip ci]')
+    runs-on: [self-hosted, local, k3d]
+    strategy:
+      fail-fast: false
+      max-parallel: 1
+      matrix:
+        include:
+          - service: auth-service
+          - service: catalog-service
+          - service: generation-service
+          - service: pmi-agent
+
+    env:
+      REGISTRY: local-registry.infra.svc.cluster.local:5000
+      TARGET_BRANCH: part-3
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TARGET_BRANCH }}
+          fetch-depth: 0
+
+      - name: Prepare Git
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git pull --rebase origin "${TARGET_BRANCH}"
+
+      - name: Set image tag
+        run: echo "IMAGE_TAG=${GITHUB_SHA::7}" >> "${GITHUB_ENV}"
+
+      - name: Build and push image with Kaniko Job
+        run: |
+          platform/cicd/scripts/build-and-push-local.sh "${{ matrix.service }}" "${IMAGE_TAG}" "${TARGET_BRANCH}"
+
+      - name: Update Helm image values
+        run: |
+          platform/cicd/scripts/update-helm-image.sh \
+            "${{ matrix.service }}" \
+            "${REGISTRY}/${{ matrix.service }}" \
+            "${IMAGE_TAG}"
+
+      - name: Commit Helm value update
+        run: |
+          if git diff --quiet -- "platform/helm/${{ matrix.service }}/values.yaml"; then
+            echo "No Helm image change for ${{ matrix.service }}"
+            exit 0
+          fi
+
+          git add "platform/helm/${{ matrix.service }}/values.yaml"
+          git commit -m "ci: update ${{ matrix.service }} image tag to ${IMAGE_TAG} [skip ci]"
+          git pull --rebase origin "${TARGET_BRANCH}"
+          git push origin "HEAD:${TARGET_BRANCH}"

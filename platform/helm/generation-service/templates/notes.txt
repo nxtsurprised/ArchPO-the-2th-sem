@@ -1,0 +1,5 @@
+{{/*
+Generation Service
+URL in cluster: http://{{ include "generation-service.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local:{{ .Values.service.port }}
+Image: {{ .Values.image.repository }}:{{ .Values.image.tag }}
+*/}}

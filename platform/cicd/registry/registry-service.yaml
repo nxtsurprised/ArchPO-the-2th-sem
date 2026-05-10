@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: local-registry
+  namespace: infra
+  labels:
+    app.kubernetes.io/name: local-registry
+    app.kubernetes.io/part-of: archpo-cicd
+spec:
+  type: ClusterIP
+  selector:
+    app.kubernetes.io/name: local-registry
+  ports:
+    - name: http
+      port: 5000
+      targetPort: http
