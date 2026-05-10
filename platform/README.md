@@ -492,6 +492,39 @@ platform/dev-dependencies/validation/check-dev-dependencies.sh
 
 Этот слой готовит платформу к будущему Block 6, но не добавляет Locust, k6 или нагрузочные сценарии.
 
+### Core E2E-проверка
+
+После запуска dev-dependencies и синхронизации Helm charts проверьте:
+
+```sh
+kubectl get applications -n argocd
+kubectl get pods -n app
+kubectl get pods -n databases
+```
+
+Для текущего core E2E ожидается:
+
+- `auth-service`, `catalog-service`, `generation-service`, `workflow-service` - `1/1 Running`;
+- `databases` - `Synced / Healthy`;
+- core service apps - `Synced / Healthy`;
+- `pmi-agent` не обязателен, потому что это optional AI service.
+
+Проверка HTTP health/metrics выполняется через port-forward:
+
+```sh
+kubectl -n app port-forward svc/auth-service 8001:8001
+curl http://localhost:8001/health
+curl http://localhost:8001/metrics
+```
+
+Порты остальных сервисов:
+
+- `catalog-service`: `8002`;
+- `generation-service`: `8003`;
+- `workflow-service`: `8004`.
+
+OpenAPI доступен на `/docs` каждого сервиса. Полный бизнес-сценарий с JWT и payloads будет отдельным шагом перед Block 6.
+
 ## Как Читать
 
 Этот README используется как пошаговая инструкция с командами.

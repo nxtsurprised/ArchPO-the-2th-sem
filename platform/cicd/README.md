@@ -177,6 +177,41 @@ git push origin part-3
 - ArgoCD синхронизирует только то, что уже запушено в Git. Локальные незакоммиченные изменения ArgoCD не увидит.
 - Это учебный локальный контур, не production CI/CD.
 
+## Что проверять после E2E deployment
+
+Для core E2E достаточно 4 сервисов:
+
+- `auth-service`;
+- `catalog-service`;
+- `generation-service`;
+- `workflow-service`.
+
+Проверка состояния:
+
+```sh
+kubectl get applications -n argocd
+kubectl get pods -n app
+kubectl get pods -n databases
+```
+
+Ожидаемо core apps и `databases` должны быть `Synced / Healthy`, а pod'ы core-сервисов - `1/1 Running`.
+
+Проверка HTTP:
+
+```sh
+kubectl -n app port-forward svc/auth-service 8001:8001
+curl http://localhost:8001/health
+curl http://localhost:8001/metrics
+```
+
+Аналогично:
+
+- `catalog-service`: port `8002`;
+- `generation-service`: port `8003`;
+- `workflow-service`: port `8004`.
+
+`pmi-agent` optional и не должен блокировать эту проверку.
+
 ## Связанные файлы
 
 - [registry/README.md](registry/README.md)

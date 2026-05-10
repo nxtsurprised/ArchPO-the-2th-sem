@@ -68,7 +68,54 @@ kubectl logs -n app <pod-name> --previous
 - Secret отсутствует в namespace, где запускается pod;
 - init/migration приложения требует пустую или уже подготовленную БД.
 
-## 5. Связь с будущим Block 6
+## 5. Проверить core E2E health/metrics
+
+Core E2E для текущего этапа включает:
+
+- `auth-service`;
+- `catalog-service`;
+- `generation-service`;
+- `workflow-service`;
+- dev-dependencies в namespace `databases`.
+
+`pmi-agent` optional и не блокирует core E2E.
+
+Проверьте сервисы по одному:
+
+```sh
+kubectl -n app port-forward svc/auth-service 8001:8001
+curl http://localhost:8001/health
+curl http://localhost:8001/metrics
+```
+
+```sh
+kubectl -n app port-forward svc/catalog-service 8002:8002
+curl http://localhost:8002/health
+curl http://localhost:8002/metrics
+```
+
+```sh
+kubectl -n app port-forward svc/generation-service 8003:8003
+curl http://localhost:8003/health
+curl http://localhost:8003/metrics
+```
+
+```sh
+kubectl -n app port-forward svc/workflow-service 8004:8004
+curl http://localhost:8004/health
+curl http://localhost:8004/metrics
+```
+
+Для просмотра реальных API endpoints:
+
+```text
+http://localhost:8001/docs
+http://localhost:8002/docs
+http://localhost:8003/docs
+http://localhost:8004/docs
+```
+
+## 6. Связь с будущим Block 6
 
 После этого слоя микросервисы смогут обращаться к локальным Postgres, MongoDB, Redis/Valkey, MinIO и ChromaDB. В будущем Block 6 нагрузочный инструмент сможет отправлять запросы через Gateway в сервисы, которые используют эти зависимости.
 

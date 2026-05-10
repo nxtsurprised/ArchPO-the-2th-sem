@@ -132,6 +132,64 @@ kubectl describe pod -n app <pod-name>
 kubectl logs -n app <pod-name> --previous
 ```
 
+## Core E2E-проверка
+
+После запуска dev-dependencies и обновления Helm image tags core-система считается готовой к локальной E2E-проверке, если:
+
+```sh
+kubectl get pods -n app
+kubectl get pods -n databases
+kubectl get applications -n argocd
+```
+
+Ожидаемое состояние:
+
+- `auth-service`, `catalog-service`, `generation-service`, `workflow-service` - `1/1 Running`;
+- dependency pods в `databases` - `Running`;
+- MinIO buckets job - `Completed`;
+- ArgoCD apps `auth-service`, `catalog-service`, `generation-service`, `workflow-service`, `databases` - `Synced / Healthy`.
+
+`pmi-agent` не входит в обязательный core E2E: он optional из-за тяжелых AI/ML-зависимостей и отсутствия Ollama по умолчанию.
+
+Проверка health/metrics через port-forward:
+
+```sh
+kubectl -n app port-forward svc/auth-service 8001:8001
+curl http://localhost:8001/health
+curl http://localhost:8001/metrics
+```
+
+```sh
+kubectl -n app port-forward svc/catalog-service 8002:8002
+curl http://localhost:8002/health
+curl http://localhost:8002/metrics
+```
+
+```sh
+kubectl -n app port-forward svc/generation-service 8003:8003
+curl http://localhost:8003/health
+curl http://localhost:8003/metrics
+```
+
+```sh
+kubectl -n app port-forward svc/workflow-service 8004:8004
+curl http://localhost:8004/health
+curl http://localhost:8004/metrics
+```
+
+Каждый port-forward держит терминал занятым. Для следующего сервиса откройте новый терминал или остановите предыдущий port-forward через `Ctrl+C`.
+
+OpenAPI доступен на `/docs`:
+
+```text
+http://localhost:8001/docs
+http://localhost:8002/docs
+http://localhost:8003/docs
+http://localhost:8004/docs
+```
+
+Health/metrics проверяют runtime-интеграцию и readiness. Полный пользовательский сценарий с JWT, payloads и gateway-запросами лучше оформить отдельным шагом перед Block 6.
+
 ## Подготовка к будущему Block 6
 
 Этот слой нужен, чтобы будущий load-testing блок мог отправлять запросы через Gateway в реальные микросервисы, которые используют Kafka, Redis/Valkey, базы данных, MinIO и ChromaDB.
