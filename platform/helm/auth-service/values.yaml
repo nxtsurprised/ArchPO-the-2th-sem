@@ -1,7 +1,7 @@
 replicaCount: 1
 
 image:
-  repository: "local-registry.infra.svc.cluster.local:5000/auth-service"
+  repository: "k3d-archpo-registry:5000/auth-service"
   tag: "manual-test"
   pullPolicy: IfNotPresent
 
