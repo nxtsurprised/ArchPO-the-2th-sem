@@ -9,9 +9,11 @@
 - `generation-service`
 - `workflow-service`
 
-Дополнительно описан `pmi-agent`, чтобы сохранить поддержку AI-monitoring/agent service в том же CI/CD-контуре:
+Дополнительно описан optional `pmi-agent`, чтобы сохранить поддержку AI-monitoring/agent service:
 
 - `pmi-agent`
+
+`pmi-agent` не является обязательной частью локального E2E: его image тяжелый для Kaniko в k3d, а Ollama не разворачивается по умолчанию. Chart остается для ручного включения AI-flow.
 
 Docker Compose из `part1/` не изменяется. Эти charts нужны для Block 5: CI собирает образы, обновляет `image.repository` и `image.tag` в `values.yaml`, а ArgoCD синхронизирует сервисы из Git.
 

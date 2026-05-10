@@ -8,7 +8,6 @@ on:
       - "part1/catalog-service/**"
       - "part1/generation-service/**"
       - "part1/workflow-service/**"
-      - "part1/pmi-agent/**"
       - "platform/helm/**"
 
 permissions:
@@ -28,7 +27,6 @@ jobs:
           - service: catalog-service
           - service: generation-service
           - service: workflow-service
-          - service: pmi-agent
 
     env:
       REGISTRY: local-registry.infra.svc.cluster.local:5000

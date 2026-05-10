@@ -360,7 +360,7 @@ Block 5 добавляет локальный учебный pipeline для с�
 - Kaniko используется для сборки images без Docker daemon, как требуется в задании.
 - Локальный Docker Registry разворачивается в Kubernetes в namespace `infra`.
 - Helm charts для `auth-service`, `catalog-service`, `generation-service` и `workflow-service` лежат в `platform/helm/`.
-- `pmi-agent` также остается в Helm/CI контуре как дополнительный сервис для AI-monitoring направления.
+- `pmi-agent` остается optional Helm chart для AI-monitoring направления, но не входит в обязательную local E2E/CI matrix.
 - ArgoCD child Applications указывают на реальные Helm chart paths и синхронизируют namespace `app`.
 
 CI/CD поток:
@@ -467,6 +467,7 @@ curl http://localhost:5000/v2/_catalog
 - Kaniko выбран по требованию задания, но для production стоит отдельно оценить BuildKit, Buildah или Podman.
 - ArgoCD синхронизирует только изменения, которые уже запушены в Git.
 - Runtime-зависимости приложений, например PostgreSQL для `auth-service` и `workflow-service`, должны быть развернуты отдельно; Block 5 описывает CI/CD и Helm deployment, а не production databases.
+- `pmi-agent` не синхронизируется ArgoCD автоматически и не собирается default workflow, потому что AI/ML dependencies слишком тяжелые для обязательного локального k3d E2E. Его можно включить вручную, когда нужны AI-flow проверки.
 
 ## Dev Dependencies для E2E
 

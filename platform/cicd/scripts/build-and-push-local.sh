@@ -13,6 +13,10 @@ NAMESPACE="${NAMESPACE:-infra}"
 REPO_URL="${REPO_URL:-https://github.com/nxtsurprised/ArchPO-the-2th-sem.git}"
 REGISTRY="${REGISTRY:-local-registry.infra.svc.cluster.local:5000}"
 JOB_NAME="kaniko-build-${SERVICE}-${TAG//[^a-zA-Z0-9-]/-}"
+KANIKO_CPU_REQUEST="${KANIKO_CPU_REQUEST:-250m}"
+KANIKO_MEMORY_REQUEST="${KANIKO_MEMORY_REQUEST:-512Mi}"
+KANIKO_CPU_LIMIT="${KANIKO_CPU_LIMIT:-1}"
+KANIKO_MEMORY_LIMIT="${KANIKO_MEMORY_LIMIT:-1Gi}"
 
 case "${SERVICE}" in
   auth-service|catalog-service|generation-service|workflow-service)
@@ -62,11 +66,11 @@ spec:
             - --skip-tls-verify
           resources:
             requests:
-              cpu: 250m
-              memory: 512Mi
+              cpu: ${KANIKO_CPU_REQUEST}
+              memory: ${KANIKO_MEMORY_REQUEST}
             limits:
-              cpu: "1"
-              memory: 1Gi
+              cpu: "${KANIKO_CPU_LIMIT}"
+              memory: ${KANIKO_MEMORY_LIMIT}
 EOF
 
 kubectl -n "${NAMESPACE}" wait --for=condition=complete "job/${JOB_NAME}" --timeout=20m

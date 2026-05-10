@@ -3,6 +3,9 @@ kind: Application
 metadata:
   name: pmi-agent
   namespace: argocd
+  annotations:
+    archpo.local/optional: "true"
+    archpo.local/reason: "AI agent is heavy for mandatory local k3d E2E"
 spec:
   project: default
   source:
@@ -13,8 +16,5 @@ spec:
     server: https://kubernetes.default.svc
     namespace: app
   syncPolicy:
-    automated:
-      prune: true
-      selfHeal: true
     syncOptions:
       - CreateNamespace=true

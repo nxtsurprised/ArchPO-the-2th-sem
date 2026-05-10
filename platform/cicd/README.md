@@ -39,7 +39,7 @@ CI не делает `kubectl apply` для микросервисов. Депл
 - `generation-service`
 - `workflow-service`
 
-Также в том же контуре остается `pmi-agent`.
+`pmi-agent` остается как optional Helm chart, но не входит в обязательную CI matrix локального E2E. Причина: AI/ML-зависимости (`torch`, `sentence-transformers`, `chromadb` и связанные пакеты) делают Kaniko build тяжелым для локального k3d.
 
 ## Быстрый запуск с нуля
 
@@ -137,6 +137,36 @@ platform/cicd/scripts/update-helm-image.sh \
   local-registry.infra.svc.cluster.local:5000/auth-service \
   manual-test
 ```
+
+## Optional PMI Agent
+
+`pmi-agent` не собирается в default workflow и не синхронизируется ArgoCD автоматически. Chart остается в `platform/helm/pmi-agent`, чтобы AI-monitoring направление можно было включить вручную.
+
+Ручная сборка требует больше ресурсов:
+
+```sh
+REGISTRY=k3d-archpo-registry:5000 \
+KANIKO_CPU_REQUEST=500m \
+KANIKO_MEMORY_REQUEST=1Gi \
+KANIKO_CPU_LIMIT=2 \
+KANIKO_MEMORY_LIMIT=6Gi \
+platform/cicd/scripts/build-and-push-local.sh pmi-agent manual-test part-3
+```
+
+После успешной сборки:
+
+```sh
+platform/cicd/scripts/update-helm-image.sh \
+  pmi-agent \
+  k3d-archpo-registry:5000/pmi-agent \
+  manual-test
+
+git add platform/helm/pmi-agent/values.yaml
+git commit -m "ci: update pmi-agent image tag [skip ci]"
+git push origin part-3
+```
+
+Затем `pmi-agent` можно синхронизировать вручную через ArgoCD UI или CLI. Для обычной проверки Block 5/E2E это не требуется.
 
 ## Важные локальные ограничения
 
