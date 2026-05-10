@@ -2,11 +2,15 @@
 
 Этот каталог содержит учебные Helm charts для Kubernetes-деплоя части сервисов из `part1/`.
 
-Сейчас описаны 4 сервиса:
+Сейчас описаны 5 charts. Основные 4 микросервиса Block 5:
 
 - `auth-service`
 - `catalog-service`
 - `generation-service`
+- `workflow-service`
+
+Дополнительно описан `pmi-agent`, чтобы сохранить поддержку AI-monitoring/agent service в том же CI/CD-контуре:
+
 - `pmi-agent`
 
 Docker Compose из `part1/` не изменяется. Эти charts нужны для Block 5: CI собирает образы, обновляет `image.repository` и `image.tag` в `values.yaml`, а ArgoCD синхронизирует сервисы из Git.
@@ -58,6 +62,8 @@ CI/CD workflow меняет эти значения на конкретный т
 - `minio-secret`
 
 Если секретов нет, Deployment может создаться, но контейнеры не стартуют корректно. Это нормально для локального учебного этапа: секреты создаются базовой инфраструктурой или добавляются отдельно.
+
+`workflow-service` использует PostgreSQL, Kafka и JWKS endpoint `auth-service` для проверки JWT. Redis в chart оставлен выключенным, потому что в текущей конфигурации сервиса он не является обязательной runtime-зависимостью.
 
 ## Локальная проверка
 

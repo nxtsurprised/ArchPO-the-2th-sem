@@ -32,6 +32,15 @@ CI не делает `kubectl apply` для микросервисов. Депл
 - `scripts/build-and-push-local.sh` - создает Kaniko Job для ручной сборки одного сервиса.
 - `.github/workflows/build-and-update-helm.yml` - workflow для build/push/update Helm values.
 
+Основные Helm-deployed микросервисы Block 5:
+
+- `auth-service`
+- `catalog-service`
+- `generation-service`
+- `workflow-service`
+
+Также в том же контуре остается `pmi-agent`.
+
 ## Быстрый запуск с нуля
 
 1. Поднимите локальный кластер и базовую инфраструктуру:
@@ -112,6 +121,12 @@ curl http://localhost:5000/v2/_catalog
 
 ```sh
 platform/cicd/scripts/build-and-push-local.sh auth-service manual-test part-3
+```
+
+Для `workflow-service` используется такой же Kaniko-путь. Его Dockerfile копирует `workflow-service/` и общий `shared/`, поэтому build context берется из `part1`:
+
+```sh
+platform/cicd/scripts/build-and-push-local.sh workflow-service manual-test part-3
 ```
 
 После этого можно обновить Helm values:

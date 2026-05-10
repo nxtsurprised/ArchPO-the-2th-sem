@@ -358,7 +358,8 @@ Block 5 добавляет локальный учебный pipeline для с�
 - GitHub Actions Self-Hosted Runner выбран потому, что репозиторий находится на GitHub.
 - Kaniko используется для сборки images без Docker daemon, как требуется в задании.
 - Локальный Docker Registry разворачивается в Kubernetes в namespace `infra`.
-- Helm charts для `auth-service`, `catalog-service`, `generation-service` и `pmi-agent` лежат в `platform/helm/`.
+- Helm charts для `auth-service`, `catalog-service`, `generation-service` и `workflow-service` лежат в `platform/helm/`.
+- `pmi-agent` также остается в Helm/CI контуре как дополнительный сервис для AI-monitoring направления.
 - ArgoCD child Applications указывают на реальные Helm chart paths и синхронизируют namespace `app`.
 
 CI/CD поток:
@@ -464,6 +465,7 @@ curl http://localhost:5000/v2/_catalog
 - Для pull images из k3d nodes может потребоваться k3d registry integration; простой `localhost:5000` с хоста не всегда доступен изнутри node containers.
 - Kaniko выбран по требованию задания, но для production стоит отдельно оценить BuildKit, Buildah или Podman.
 - ArgoCD синхронизирует только изменения, которые уже запушены в Git.
+- Runtime-зависимости приложений, например PostgreSQL для `auth-service` и `workflow-service`, должны быть развернуты отдельно; Block 5 описывает CI/CD и Helm deployment, а не production databases.
 
 ## Как Читать
 

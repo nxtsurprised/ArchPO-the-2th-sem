@@ -15,7 +15,7 @@ REGISTRY="${REGISTRY:-local-registry.infra.svc.cluster.local:5000}"
 JOB_NAME="kaniko-build-${SERVICE}-${TAG//[^a-zA-Z0-9-]/-}"
 
 case "${SERVICE}" in
-  auth-service|catalog-service|generation-service)
+  auth-service|catalog-service|generation-service|workflow-service)
     CONTEXT_SUB_PATH="part1"
     DOCKERFILE="${SERVICE}/Dockerfile"
     ;;

@@ -6,6 +6,7 @@ CHARTS=(
   auth-service
   catalog-service
   generation-service
+  workflow-service
   pmi-agent
 )
 

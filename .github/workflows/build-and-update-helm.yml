@@ -7,6 +7,7 @@ on:
       - "part1/auth-service/**"
       - "part1/catalog-service/**"
       - "part1/generation-service/**"
+      - "part1/workflow-service/**"
       - "part1/pmi-agent/**"
       - "platform/helm/**"
 
@@ -26,6 +27,7 @@ jobs:
           - service: auth-service
           - service: catalog-service
           - service: generation-service
+          - service: workflow-service
           - service: pmi-agent
 
     env:
