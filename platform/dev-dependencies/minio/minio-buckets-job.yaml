@@ -1,0 +1,54 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: minio-create-buckets
+  namespace: databases
+  labels:
+    app.kubernetes.io/name: minio-create-buckets
+    app.kubernetes.io/part-of: archpo-platform
+    app.kubernetes.io/managed-by: kubernetes-manifests
+    app.kubernetes.io/component: dev-dependency
+spec:
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: minio-create-buckets
+        app.kubernetes.io/part-of: archpo-platform
+        app.kubernetes.io/managed-by: kubernetes-manifests
+        app.kubernetes.io/component: dev-dependency
+    spec:
+      restartPolicy: OnFailure
+      containers:
+        - name: mc
+          image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: MINIO_ROOT_USER
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_USER
+            - name: MINIO_ROOT_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: minio-secret
+                  key: MINIO_ROOT_PASSWORD
+          command:
+            - /bin/sh
+            - -c
+            - |
+              set -eu
+              until mc alias set local http://minio.databases.svc.cluster.local:9000 "$MINIO_ROOT_USER" "$MINIO_ROOT_PASSWORD"; do
+                echo "waiting for minio"
+                sleep 5
+              done
+              mc mb --ignore-existing local/documents
+              mc mb --ignore-existing local/documents-archive
+              mc mb --ignore-existing local/templates
+          resources:
+            requests:
+              cpu: 50m
+              memory: 64Mi
+            limits:
+              cpu: 250m
+              memory: 256Mi

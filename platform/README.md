@@ -12,6 +12,7 @@
 - Istio Service Mesh, Istio Ingress Gateway и gateway-level rate limiting для Block 3.
 - Kubernetes observability: Prometheus, Alertmanager, Loki, Promtail, Grafana, OpenTelemetry Collector и Tempo для Block 4.
 - Локальный CI/CD-контур для Block 5: GitHub Actions Self-Hosted Runner, Kaniko, local registry, Helm charts и ArgoCD GitOps sync.
+- Локальные dev-зависимости для E2E-проверки Helm-deployed сервисов: PostgreSQL, MongoDB, Valkey, MinIO и ChromaDB.
 
 В репозиторий не добавляются облачные учетные данные, kubeconfig-файлы, секреты или сгенерированное состояние кластера.
 
@@ -466,6 +467,29 @@ curl http://localhost:5000/v2/_catalog
 - Kaniko выбран по требованию задания, но для production стоит отдельно оценить BuildKit, Buildah или Podman.
 - ArgoCD синхронизирует только изменения, которые уже запушены в Git.
 - Runtime-зависимости приложений, например PostgreSQL для `auth-service` и `workflow-service`, должны быть развернуты отдельно; Block 5 описывает CI/CD и Helm deployment, а не production databases.
+
+## Dev Dependencies для E2E
+
+`platform/dev-dependencies` добавляет легкие локальные зависимости в namespace `databases`, чтобы Helm-deployed сервисы могли проходить runtime health/readiness checks:
+
+- PostgreSQL для `auth-service` и `workflow-service`;
+- MongoDB для `catalog-service`;
+- Valkey/Redis-compatible cache для сервисов, которые используют Redis URL;
+- MinIO для `generation-service`;
+- ChromaDB для `pmi-agent`.
+
+Ollama не разворачивается по умолчанию, потому что он тяжелый для локального k3d/k3s. Его можно подключить отдельно как внешний локальный endpoint.
+
+Развернуть вручную:
+
+```sh
+kubectl apply -k platform/dev-dependencies
+platform/dev-dependencies/validation/check-dev-dependencies.sh
+```
+
+Или через ArgoCD child app `databases`, который указывает на `platform/dev-dependencies`.
+
+Этот слой готовит платформу к будущему Block 6, но не добавляет Locust, k6 или нагрузочные сценарии.
 
 ## Как Читать
 

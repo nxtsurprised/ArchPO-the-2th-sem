@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-initdb
+  namespace: databases
+  labels:
+    app.kubernetes.io/name: postgres
+    app.kubernetes.io/part-of: archpo-platform
+    app.kubernetes.io/managed-by: kubernetes-manifests
+    app.kubernetes.io/component: dev-dependency
+data:
+  01-create-service-databases.sh: |
+    #!/usr/bin/env bash
+    set -euo pipefail
+
+    create_database() {
+      local database="$1"
+      if psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" -tAc "SELECT 1 FROM pg_database WHERE datname = '${database}'" | grep -q 1; then
+        echo "database ${database} already exists"
+      else
+        psql -v ON_ERROR_STOP=1 --username "${POSTGRES_USER}" --dbname "${POSTGRES_DB}" -c "CREATE DATABASE ${database}"
+      fi
+    }
+
+    create_database auth_db
+    create_database workflow_db
