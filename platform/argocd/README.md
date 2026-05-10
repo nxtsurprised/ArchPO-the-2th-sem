@@ -4,7 +4,7 @@
 
 App of Apps означает, что один корневой ArgoCD `Application` указывает на каталог с дочерними `Application`. Корневое приложение синхронизирует список приложений, а дочерние приложения затем синхронизируют свои собственные manifest/Helm/Kustomize пути.
 
-В этом блоке создается структура GitOps. Полные Kubernetes-манифесты микросервисов еще не реализуются.
+В этом блоке создается GitOps-структура. Полные Kubernetes manifests для микросервисов еще не реализованы. Начиная с Block 4, child app `observability` указывает на реальные Kubernetes manifests в `platform/observability`.
 
 ## Установка ArgoCD
 
@@ -79,4 +79,4 @@ kubectl describe application platform-root -n argocd
 - `pmi-agent`;
 - `frontend`.
 
-На текущем этапе они являются GitOps-заготовками. Их `path` указывает на планируемые каталоги `platform/gitops/...`, которые будут заполнены в будущих блоках. Kafka в Block 2 демонстрационно разворачивается через Ansible role и Strimzi, а не через ArgoCD, чтобы не смешивать владение одним и тем же ресурсом.
+На текущем этапе большинство из них являются GitOps-заготовками. `observability` уже указывает на реальные manifests в `platform/observability`. Kafka в Block 2 демонстрационно разворачивается через Ansible role и Strimzi, а не через ArgoCD, чтобы не смешивать владение одним и тем же ресурсом.

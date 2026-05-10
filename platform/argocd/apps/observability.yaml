@@ -3,14 +3,12 @@ kind: Application
 metadata:
   name: observability
   namespace: argocd
-  annotations:
-    archpo.local/status: "placeholder"
 spec:
   project: default
   source:
     repoURL: https://github.com/nxtsurprised/ArchPO-the-2th-sem.git
     targetRevision: part-3
-    path: platform/gitops/observability
+    path: platform/observability
   destination:
     server: https://kubernetes.default.svc
     namespace: observability
@@ -18,3 +16,5 @@ spec:
     automated:
       prune: true
       selfHeal: true
+    syncOptions:
+      - CreateNamespace=true

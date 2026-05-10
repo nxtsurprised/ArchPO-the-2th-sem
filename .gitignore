@@ -104,6 +104,7 @@ temp/
 # ─── Kubernetes / локальное состояние платформы ─────────────────────────
 kubeconfig*
 *.kubeconfig
+*.kubeconfig.yaml
 *.tfstate
 *.tfstate.*
 terraform.tfvars
@@ -114,3 +115,14 @@ crash.*.log
 .terraform/
 .terraform.lock.hcl
 *.retry
+
+# Ошибочно вложенная копия репозитория
+ArchPO-the-2th-sem/
+
+# Локальные выгрузки/артефакты observability
+platform/observability/**/dashboards/exported/
+platform/observability/**/dashboards/local/
+platform/observability/**/*.export.json
+platform/observability/**/*.local.json
+platform/observability/**/*rendered*.yaml
+platform/observability/**/*rendered*.yml
