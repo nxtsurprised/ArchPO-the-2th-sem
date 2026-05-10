@@ -1,0 +1,35 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+resources:
+  - namespace.yaml
+  - manifests/prometheus/prometheus-rbac.yaml
+  - manifests/prometheus/prometheus-config.yaml
+  - manifests/prometheus/alert-rules.yaml
+  - manifests/prometheus/prometheus-deployment.yaml
+  - manifests/prometheus/prometheus-service.yaml
+  - manifests/alertmanager/alertmanager-config.yaml
+  - manifests/alertmanager/alertmanager-deployment.yaml
+  - manifests/alertmanager/alertmanager-service.yaml
+  - manifests/loki/loki-config.yaml
+  - manifests/loki/loki-deployment.yaml
+  - manifests/loki/loki-service.yaml
+  - manifests/promtail/promtail-rbac.yaml
+  - manifests/promtail/promtail-config.yaml
+  - manifests/promtail/promtail-daemonset.yaml
+  - manifests/tempo/tempo-config.yaml
+  - manifests/tempo/tempo-deployment.yaml
+  - manifests/tempo/tempo-service.yaml
+  - manifests/otel-collector/otel-config.yaml
+  - manifests/otel-collector/otel-deployment.yaml
+  - manifests/otel-collector/otel-service.yaml
+  - manifests/grafana/grafana-datasources.yaml
+  - manifests/grafana/grafana-dashboard-provider.yaml
+  - manifests/grafana/grafana-deployment.yaml
+  - manifests/grafana/grafana-service.yaml
+generatorOptions:
+  disableNameSuffixHash: true
+configMapGenerator:
+  - name: grafana-dashboard-platform-overview
+    namespace: observability
+    files:
+      - platform-overview.json=manifests/grafana/dashboards/platform-overview.json

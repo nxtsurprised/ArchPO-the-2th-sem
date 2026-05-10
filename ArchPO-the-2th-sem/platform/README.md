@@ -9,6 +9,8 @@
 - Hubble relay и Hubble UI для наблюдения за сетевыми потоками Cilium.
 - Kubernetes HPA для локальной проверки автомасштабирования подов.
 - Документация по Cluster Autoscaler как выбранному подходу к автомасштабированию worker-нод.
+- Istio Service Mesh, Istio Ingress Gateway и gateway-level rate limiting для Block 3.
+- Kubernetes observability: Prometheus, Alertmanager, Loki, Promtail, Grafana, OpenTelemetry Collector и Tempo для Block 4.
 
 В репозиторий не добавляются облачные учетные данные, kubeconfig-файлы, секреты или сгенерированное состояние кластера.
 
@@ -76,6 +78,16 @@ ansible-playbook -i inventory/local.yml playbooks/deploy-kafka.yml
 cd ../..
 ```
 
+Block 2.3 использует Strimzi Operator и создает легкий локальный Kafka cluster в namespace `kafka`. Namespace `kafka` принадлежит Terraform, а Ansible управляет только Kafka-ресурсами внутри него: Strimzi Operator, `KafkaNodePool`, `Kafka` и `KafkaTopic`.
+
+При необходимости Kafka custom resources можно удалить без удаления namespace:
+
+```sh
+cd platform/ansible
+ansible-playbook -i inventory/local.yml playbooks/delete-kafka.yml
+cd ../..
+```
+
 6. Проверьте ресурсы:
 
 ```sh
@@ -87,6 +99,7 @@ kubectl get configmap app-config -n app
 kubectl get applications -n argocd
 kubectl get pods -n kafka
 kubectl get kafka -n kafka
+kubectl get kafkanodepool -n kafka
 kubectl get kafkatopic -n kafka
 kubectl describe kafka archpo-kafka -n kafka
 ```
@@ -129,6 +142,214 @@ kubectl describe kafka archpo-kafka -n kafka
 kubectl logs -n kafka deployment/strimzi-cluster-operator
 ```
 
+Подробный troubleshooting для Ansible/Strimzi находится в `platform/ansible/README.md`.
+
+## Block 3: Ядро системы и трафик
+
+Block 3 добавляет локальный traffic layer без переноса реальных микросервисов из `part1/` в Kubernetes:
+
+- `mesh/` устанавливает Istio и содержит demo workload для retry и outlier detection.
+- `ingress/` использует Istio Ingress Gateway напрямую как API Gateway / ingress entrypoint.
+- `rate-limiting/` добавляет Envoy global rate limiting через `envoyproxy/ratelimit` и Valkey.
+
+В локальном Docker Desktop + k3d окружении не реализуется настоящий Keepalived VIP. Keepalived требует надежного L2/VRRP-поведения, которое не является переносимым в Docker Desktop. Production-вариант описан в `platform/ingress/README.md`.
+
+### Последовательность запуска Block 3
+
+1. Убедитесь, что кластер и Cilium здоровы:
+
+```sh
+./platform/cluster/k3d/create-cluster.sh
+./platform/cluster/cilium/install-cilium.sh
+kubectl get nodes
+kubectl get pods -n kube-system
+```
+
+2. Установите Istio:
+
+```sh
+./platform/mesh/install-istio.sh
+kubectl get pods -n istio-system
+istioctl proxy-status
+```
+
+3. Deploy traffic demo:
+
+```sh
+kubectl apply -f platform/mesh/traffic-demo/namespace.yaml
+kubectl apply -f platform/mesh/traffic-demo/services.yaml
+kubectl rollout status deployment/traffic-backend-v1 -n traffic-demo --timeout=180s
+kubectl rollout status deployment/traffic-backend-v2 -n traffic-demo --timeout=180s
+kubectl rollout status deployment/traffic-client -n traffic-demo --timeout=180s
+kubectl apply -f platform/mesh/traffic-demo/gateway.yaml
+kubectl apply -f platform/mesh/traffic-demo/destinationrule.yaml
+kubectl apply -f platform/mesh/traffic-demo/virtualservice.yaml
+```
+
+4. Validate retries and outlier detection objects:
+
+```sh
+kubectl get pods -n traffic-demo
+kubectl get destinationrule,virtualservice,gateway -n traffic-demo
+kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
+curl -i http://localhost:8080/api/demo
+./platform/mesh/traffic-demo/load-test.sh
+kubectl apply -f platform/mesh/traffic-demo/fault-injection.yaml
+./platform/mesh/traffic-demo/load-test.sh
+kubectl apply -f platform/mesh/traffic-demo/virtualservice.yaml
+```
+
+5. Apply ingress gateway HA/PDB:
+
+```sh
+kubectl patch deployment istio-ingressgateway -n istio-system --patch-file platform/ingress/gateway-ha.yaml
+kubectl patch hpa istio-ingressgateway -n istio-system --type merge -p '{"spec":{"minReplicas":2}}'
+kubectl apply -f platform/ingress/pdb.yaml
+kubectl rollout status deployment/istio-ingressgateway -n istio-system --timeout=180s
+kubectl get pods -n istio-system -l app=istio-ingressgateway
+kubectl get hpa -n istio-system
+kubectl get pdb -n istio-system
+```
+
+6. Deploy Valkey and Envoy Rate Limit Service:
+
+```sh
+kubectl apply -f platform/rate-limiting/namespace.yaml
+kubectl apply -f platform/rate-limiting/valkey.yaml
+kubectl apply -f platform/rate-limiting/ratelimit-configmap.yaml
+kubectl apply -f platform/rate-limiting/ratelimit-service.yaml
+kubectl rollout status deployment/valkey -n rate-limiting --timeout=180s
+kubectl rollout status deployment/ratelimit -n rate-limiting --timeout=180s
+```
+
+7. Apply EnvoyFilter:
+
+```sh
+kubectl apply -f platform/rate-limiting/envoyfilter-ratelimit.yaml
+kubectl get envoyfilter -n istio-system
+```
+
+8. Validate HTTP 429:
+
+```sh
+kubectl get pods -n rate-limiting
+kubectl logs -n rate-limiting deployment/ratelimit
+kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
+curl -i http://localhost:8080/api/demo
+./platform/rate-limiting/validation.sh
+```
+
+9. Cleanup commands:
+
+```sh
+./platform/rate-limiting/cleanup.sh
+./platform/mesh/traffic-demo/cleanup.sh
+./platform/mesh/uninstall-istio.sh
+```
+
+## Block 4: Observability
+
+Block 4 добавляет Kubernetes observability под `platform/observability`. Это отдельный слой от уже существующего Docker Compose observability в `part1/`: Compose-стек остается для локального запуска приложения, а Kubernetes-стек нужен для проверки платформы в k3d/k3s.
+
+Выбранный стек:
+
+- Metrics: Prometheus.
+- Logs: Loki + Promtail.
+- Visualization: Grafana.
+- Alerts: Alertmanager.
+- Traces: OpenTelemetry Collector + Tempo.
+
+Почему выбран этот вариант:
+
+- он продолжает уже реализованное направление из `part1/`;
+- Prometheus достаточно для локального и учебного масштаба;
+- Loki легче ELK для k3d/k3s;
+- Grafana объединяет метрики, логи и traces в одном UI;
+- Tempo лучше вписывается в Grafana-экосистему, чем отдельный tracing UI;
+- OpenTelemetry Collector оставляет трассировку vendor-neutral.
+
+VictoriaMetrics/VictoriaLogs, ELK, SigNoz и ClickHouse рассмотрены как альтернативы в `platform/observability/stack-comparison.md`, но не разворачиваются в этом блоке.
+
+### Последовательность Запуска Block 4
+
+1. Убедитесь, что k3d cluster запущен:
+
+```sh
+./platform/cluster/k3d/create-cluster.sh
+kubectl get nodes
+```
+
+2. Убедитесь, что Cilium здоров:
+
+```sh
+./platform/cluster/cilium/install-cilium.sh
+kubectl get pods -n kube-system
+```
+
+3. Убедитесь, что Terraform namespace существуют, или создайте namespace вручную:
+
+```sh
+cd platform/terraform
+terraform init
+terraform apply
+cd ../..
+```
+
+Минимальный ручной вариант без Terraform:
+
+```sh
+kubectl apply -f platform/observability/namespace.yaml
+```
+
+4. Примените observability manifests вручную:
+
+```sh
+kubectl apply -k platform/observability/
+```
+
+Или синхронизируйте через ArgoCD child app `observability`, который указывает на `platform/observability`.
+
+5. Проверьте Pods:
+
+```sh
+kubectl get pods -n observability
+platform/observability/validation/check-observability.sh
+```
+
+6. Откройте Grafana:
+
+```sh
+kubectl -n observability port-forward svc/grafana 3000:3000
+```
+
+Откройте `http://localhost:3000`.
+
+7. Проверьте Grafana datasources:
+
+- `Prometheus`;
+- `Loki`;
+- `Tempo`.
+
+8. Сгенерируйте тестовые logs:
+
+```sh
+kubectl apply -f platform/observability/validation/generate-test-logs.yaml
+kubectl -n observability logs job/observability-test-logs
+```
+
+9. Проверьте logs в Grafana Explore:
+
+```logql
+{namespace="observability", app="observability-test-logs"}
+```
+
+### Ограничения Block 4
+
+- Traces могут быть пустыми, пока приложения или Istio/Envoy не настроены отправлять OTLP spans в OpenTelemetry Collector.
+- Хранилища Prometheus, Loki, Tempo и Grafana используют `emptyDir`, поэтому данные не переживают пересоздание Pod.
+- Реальные email, Telegram или Slack receivers для Alertmanager не настраиваются, чтобы не добавлять secrets.
+- Полный AI monitoring не разворачивается: текущий scope документирует PMI Agent metrics, latency/errors/fallback counters и будущие LLM spans/quality dashboards.
+
 ## Как Читать
 
 Этот README используется как пошаговая инструкция с командами.
@@ -136,9 +357,10 @@ kubectl logs -n kafka deployment/strimzi-cluster-operator
 Дополнительные пояснения:
 
 - `docs/architecture.md` объясняет локальную архитектуру платформы и выбор k3d/k3s.
-- `docs/networking.md` объясняет настройку Cilium и демо для сетевых политик.
+- `docs/networking.md` объясняет настройку Cilium, Istio traffic layer и демо для сетевых политик.
 - `docs/autoscaling.md` объясняет HPA, metrics-server и почему масштабирование нод описано как дизайн, а не запускается локально.
 - `docs/validation.md` объясняет, что проверяет каждый шаг валидации.
+- `docs/block3-report.md` содержит отчет по Block 3 с командами и фактическими результатами локальной проверки.
 - `docs/deployment.md` содержит полную инструкцию по развертыванию с проверками после каждого этапа.
 - `docs/troubleshooting.md` описывает типовые ошибки и способы исправления.
 - `docs/change-log.md` фиксирует поток изменений и почему конфигурация была скорректирована.

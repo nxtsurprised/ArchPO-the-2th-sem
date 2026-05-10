@@ -1,0 +1,51 @@
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: traffic-backend
+  namespace: traffic-demo
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - traffic-demo-gateway
+  http:
+    - match:
+        - uri:
+            exact: /api/demo
+      rewrite:
+        uri: /status/200
+      timeout: 5s
+      retries:
+        attempts: 3
+        perTryTimeout: 1s
+        retryOn: 5xx,connect-failure,refused-stream
+      route:
+        - destination:
+            host: traffic-backend.traffic-demo.svc.cluster.local
+            subset: v1
+            port:
+              number: 80
+          weight: 80
+        - destination:
+            host: traffic-backend.traffic-demo.svc.cluster.local
+            subset: v2
+            port:
+              number: 80
+          weight: 20
+    - match:
+        - uri:
+            exact: /api/fail
+      rewrite:
+        uri: /status/500
+      timeout: 5s
+      retries:
+        attempts: 3
+        perTryTimeout: 1s
+        retryOn: 5xx,connect-failure,refused-stream
+      route:
+        - destination:
+            host: traffic-backend.traffic-demo.svc.cluster.local
+            subset: v2
+            port:
+              number: 80
+          weight: 100

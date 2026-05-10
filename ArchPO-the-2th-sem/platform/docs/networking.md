@@ -64,3 +64,38 @@ Cilium выбран, потому что он дает:
 - трафик можно ограничивать по labels подов.
 
 Запрос от заблокированного клиента должен завершиться по timeout, потому что backend pod не принимает ingress от label set `blocked-client`.
+
+## Block 3: Istio Traffic Layer
+
+Начиная с Block 3, поверх Cilium добавляется Istio.
+
+Роли разделены так:
+
+- Cilium остается CNI и применяет Kubernetes NetworkPolicy.
+- Istio управляет L7 HTTP-трафиком через Envoy sidecar и ingress gateway.
+- Istio `VirtualService` задает route, timeout и retry policy.
+- Istio `DestinationRule` задает connection pool limits и outlier detection.
+- Istio `EnvoyFilter` подключает global rate limiting на ingress gateway.
+
+Локальное demo находится в `platform/mesh/traffic-demo/`. Оно не зависит от реальных микросервисов и не меняет Docker Compose setup.
+
+Основные проверки:
+
+```sh
+kubectl get pods -n istio-system
+istioctl proxy-status
+kubectl get pods -n traffic-demo
+kubectl get destinationrule,virtualservice,gateway -n traffic-demo
+kubectl port-forward -n istio-system svc/istio-ingressgateway 8080:80
+curl -i http://localhost:8080/api/demo
+```
+
+Rate limiting находится в `platform/rate-limiting/`:
+
+```sh
+kubectl get pods -n rate-limiting
+kubectl logs -n rate-limiting deployment/ratelimit
+./platform/rate-limiting/validation.sh
+```
+
+После превышения demo-лимита gateway должен вернуть HTTP 429.

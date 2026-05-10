@@ -1,32 +1,63 @@
 apiVersion: kafka.strimzi.io/v1beta2
+kind: KafkaNodePool
+metadata:
+  name: {{ kafka_cluster_name }}-pool
+  namespace: {{ kafka_namespace }}
+  labels:
+    strimzi.io/cluster: {{ kafka_cluster_name }}
+    app.kubernetes.io/name: {{ kafka_cluster_name }}
+    app.kubernetes.io/part-of: archpo-platform
+    app.kubernetes.io/managed-by: ansible
+spec:
+  replicas: {{ kafka_replicas }}
+  roles:
+    - controller
+    - broker
+  storage:
+    type: {{ kafka_storage_type }}
+  resources:
+    requests:
+      memory: "{{ kafka_resources.requests.memory }}"
+      cpu: "{{ kafka_resources.requests.cpu }}"
+    limits:
+      memory: "{{ kafka_resources.limits.memory }}"
+      cpu: "{{ kafka_resources.limits.cpu }}"
+---
+apiVersion: kafka.strimzi.io/v1beta2
 kind: Kafka
 metadata:
   name: {{ kafka_cluster_name }}
   namespace: {{ kafka_namespace }}
+  annotations:
+    strimzi.io/node-pools: enabled
+    strimzi.io/kraft: enabled
   labels:
     app.kubernetes.io/name: {{ kafka_cluster_name }}
     app.kubernetes.io/part-of: archpo-platform
     app.kubernetes.io/managed-by: ansible
 spec:
   kafka:
-    replicas: {{ kafka_replicas }}
+    version: "{{ kafka_version }}"
+    metadataVersion: "{{ kafka_metadata_version }}"
     listeners:
+{% if kafka_plain_listener | bool %}
       - name: plain
         port: 9092
         type: internal
         tls: false
+{% endif %}
+{% if kafka_tls_listener | bool %}
+      - name: tls
+        port: 9093
+        type: internal
+        tls: true
+{% endif %}
     config:
       offsets.topic.replication.factor: 1
       transaction.state.log.replication.factor: 1
       transaction.state.log.min.isr: 1
       default.replication.factor: 1
       min.insync.replicas: 1
-    storage:
-      type: {{ kafka_storage_type }}
-  zookeeper:
-    replicas: 1
-    storage:
-      type: ephemeral
   entityOperator:
     topicOperator: {}
     userOperator: {}

@@ -1,0 +1,18 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: ratelimit-config
+  namespace: rate-limiting
+data:
+  config.yaml: |
+    domain: archpo-gateway
+    descriptors:
+      - key: PATH
+        value: /api/demo
+        rate_limit:
+          unit: minute
+          requests_per_unit: 5
+      - key: remote_address
+        rate_limit:
+          unit: minute
+          requests_per_unit: 20

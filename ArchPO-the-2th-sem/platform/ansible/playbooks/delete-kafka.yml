@@ -1,0 +1,51 @@
+---
+- name: Delete local Kafka resources created by the Ansible role
+  hosts: localhost
+  gather_facts: false
+  vars:
+    kafka_namespace: kafka
+    kafka_cluster_name: archpo-kafka
+    kafka_topic_name: gost34.workflow.events
+    kafka_user_name: archpo-app
+    kafka_user_enabled: false
+  tasks:
+    - name: Delete KafkaTopic
+      kubernetes.core.k8s:
+        state: absent
+        api_version: kafka.strimzi.io/v1beta2
+        kind: KafkaTopic
+        name: "{{ kafka_topic_name | replace('.', '-') }}"
+        namespace: "{{ kafka_namespace }}"
+        wait: true
+        wait_timeout: 120
+
+    - name: Delete KafkaUser when it was enabled
+      kubernetes.core.k8s:
+        state: absent
+        api_version: kafka.strimzi.io/v1beta2
+        kind: KafkaUser
+        name: "{{ kafka_user_name }}"
+        namespace: "{{ kafka_namespace }}"
+        wait: true
+        wait_timeout: 120
+      when: kafka_user_enabled | bool
+
+    - name: Delete Kafka cluster
+      kubernetes.core.k8s:
+        state: absent
+        api_version: kafka.strimzi.io/v1beta2
+        kind: Kafka
+        name: "{{ kafka_cluster_name }}"
+        namespace: "{{ kafka_namespace }}"
+        wait: true
+        wait_timeout: 300
+
+    - name: Delete KafkaNodePool
+      kubernetes.core.k8s:
+        state: absent
+        api_version: kafka.strimzi.io/v1beta2
+        kind: KafkaNodePool
+        name: "{{ kafka_cluster_name }}-pool"
+        namespace: "{{ kafka_namespace }}"
+        wait: true
+        wait_timeout: 120

@@ -1,0 +1,88 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-client
+  namespace: traffic-demo
+  labels:
+    app: traffic-client
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-client
+  template:
+    metadata:
+      labels:
+        app: traffic-client
+    spec:
+      containers:
+        - name: curl
+          image: curlimages/curl:8.7.1
+          command: ["sh", "-c", "sleep infinity"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-backend-v1
+  namespace: traffic-demo
+  labels:
+    app: traffic-backend
+    version: v1
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: traffic-backend
+      version: v1
+  template:
+    metadata:
+      labels:
+        app: traffic-backend
+        version: v1
+    spec:
+      containers:
+        - name: httpbin
+          image: kennethreitz/httpbin
+          ports:
+            - containerPort: 80
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: traffic-backend-v2
+  namespace: traffic-demo
+  labels:
+    app: traffic-backend
+    version: v2
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: traffic-backend
+      version: v2
+  template:
+    metadata:
+      labels:
+        app: traffic-backend
+        version: v2
+    spec:
+      containers:
+        - name: httpbin
+          image: kennethreitz/httpbin
+          ports:
+            - containerPort: 80
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: traffic-backend
+  namespace: traffic-demo
+  labels:
+    app: traffic-backend
+spec:
+  ports:
+    - name: http
+      port: 80
+      targetPort: 80
+  selector:
+    app: traffic-backend
