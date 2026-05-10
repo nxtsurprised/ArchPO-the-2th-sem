@@ -2,7 +2,7 @@ replicaCount: 1
 
 image:
   repository: "local-registry.infra.svc.cluster.local:5000/auth-service"
-  tag: "dev"
+  tag: "manual-test"
   pullPolicy: IfNotPresent
 
 nameOverride: ""
