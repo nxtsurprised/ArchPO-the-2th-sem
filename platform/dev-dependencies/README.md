@@ -49,6 +49,8 @@ Manifests используют уже созданные Terraform secrets:
 - `redis-secret` в namespace `databases`;
 - `minio-secret` в namespace `databases`.
 
+Terraform также создает mirror secrets с теми же именами в namespace `app`, потому что Kubernetes `secretKeyRef` не может читать Secret из другого namespace. Это нужно для стабильного запуска Helm-deployed сервисов без ручного копирования secrets.
+
 Ожидаемые ключи:
 
 ```text

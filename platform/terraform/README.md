@@ -7,6 +7,7 @@ Terraform управляет только базовой инфраструкт�
 - namespace: `app`, `infra`, `argocd`, `kafka`, `databases`, `observability`;
 - ServiceAccount в namespace `app` для сервисов приложения;
 - демо Secret для локального запуска;
+- mirror Secret в namespace `app` для credentials, которые нужны Helm-deployed приложениям;
 - ConfigMap `app-config`;
 - минимальный RBAC для чтения `app-config`.
 
@@ -79,6 +80,13 @@ Secret:
 kubectl get secret -n app
 kubectl get secret -n databases
 ```
+
+Terraform создает database/cache/storage secrets в двух местах:
+
+- в `databases`, чтобы сами dev-зависимости могли стартовать;
+- в `app`, чтобы Helm-deployed микросервисы могли использовать `secretKeyRef`.
+
+Это убирает необходимость вручную копировать `postgres-secret`, `mongo-secret`, `redis-secret` и `minio-secret` между namespace.
 
 ConfigMap:
 

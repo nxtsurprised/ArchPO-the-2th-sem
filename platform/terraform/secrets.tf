@@ -28,10 +28,30 @@ resource "kubernetes_secret_v1" "postgres" {
   data = var.postgres_secret
 }
 
+resource "kubernetes_secret_v1" "postgres_app" {
+  metadata {
+    name      = "postgres-secret"
+    namespace = kubernetes_namespace_v1.base["app"].metadata[0].name
+  }
+
+  type = "Opaque"
+  data = var.postgres_secret
+}
+
 resource "kubernetes_secret_v1" "mongo" {
   metadata {
     name      = "mongo-secret"
     namespace = kubernetes_namespace_v1.base["databases"].metadata[0].name
+  }
+
+  type = "Opaque"
+  data = var.mongo_secret
+}
+
+resource "kubernetes_secret_v1" "mongo_app" {
+  metadata {
+    name      = "mongo-secret"
+    namespace = kubernetes_namespace_v1.base["app"].metadata[0].name
   }
 
   type = "Opaque"
@@ -48,10 +68,30 @@ resource "kubernetes_secret_v1" "redis" {
   data = var.redis_secret
 }
 
+resource "kubernetes_secret_v1" "redis_app" {
+  metadata {
+    name      = "redis-secret"
+    namespace = kubernetes_namespace_v1.base["app"].metadata[0].name
+  }
+
+  type = "Opaque"
+  data = var.redis_secret
+}
+
 resource "kubernetes_secret_v1" "minio" {
   metadata {
     name      = "minio-secret"
     namespace = kubernetes_namespace_v1.base["databases"].metadata[0].name
+  }
+
+  type = "Opaque"
+  data = var.minio_secret
+}
+
+resource "kubernetes_secret_v1" "minio_app" {
+  metadata {
+    name      = "minio-secret"
+    namespace = kubernetes_namespace_v1.base["app"].metadata[0].name
   }
 
   type = "Opaque"
