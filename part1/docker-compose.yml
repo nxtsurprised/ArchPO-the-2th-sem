@@ -3,6 +3,7 @@ services:
   # Frontend builder — копирует собранный SPA в volume для nginx
   # ============================================================
   frontend:
+    image: gost34-frontend:${APP_TAG:-latest}
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -16,8 +17,8 @@ services:
   nginx:
     image: nginx:1.25-alpine
     ports:
-      - "8080:80"
-      - "8443:443"
+      - "8081:80"
+      - "8444:443"
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
       - frontend-dist:/usr/share/nginx/html:ro
@@ -33,14 +34,13 @@ services:
         condition: service_healthy
       workflow-service:
         condition: service_healthy
-      pmi-agent:
-        condition: service_healthy
     restart: unless-stopped
 
   # ============================================================
   # Auth Service
   # ============================================================
   auth-service:
+    image: gost34-auth-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: auth-service/Dockerfile
@@ -105,6 +105,7 @@ services:
   # Catalog Service
   # ============================================================
   catalog-service:
+    image: gost34-catalog-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: catalog-service/Dockerfile
@@ -158,6 +159,7 @@ services:
   # Generation Service
   # ============================================================
   generation-service:
+    image: gost34-generation-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: generation-service/Dockerfile
@@ -196,6 +198,7 @@ services:
   # Workflow Service
   # ============================================================
   workflow-service:
+    image: gost34-workflow-service:${APP_TAG:-latest}
     build:
       context: .
       dockerfile: workflow-service/Dockerfile
@@ -324,101 +327,6 @@ services:
       "
 
   # ============================================================
-  # PMI Agent Stack
-  # ============================================================
-  ollama:
-    image: ollama/ollama:latest
-    restart: unless-stopped
-    volumes:
-      - ollama-data:/root/.ollama
-    environment:
-      - OLLAMA_NUM_PARALLEL=2
-      - OLLAMA_MAX_LOADED_MODELS=1
-    # Раскомментировать при наличии GPU:
-    # deploy:
-    #   resources:
-    #     reservations:
-    #       devices:
-    #         - driver: nvidia
-    #           count: 1
-    #           capabilities: [gpu]
-    healthcheck:
-      test: ["CMD", "ollama", "list"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 60s
-
-  ollama-init:
-    image: ollama/ollama:latest
-    depends_on:
-      ollama:
-        condition: service_healthy
-    entrypoint: >
-      sh -c "
-        ollama pull mistral:7b-instruct &&
-        echo 'Model loaded successfully'
-      "
-    environment:
-      - OLLAMA_HOST=http://ollama:11434
-    restart: "no"
-
-  chromadb:
-    image: chromadb/chroma:0.5.0
-    restart: unless-stopped
-    volumes:
-      - chromadb-data:/chroma/chroma
-    environment:
-      - CHROMA_SERVER_AUTHN_PROVIDER=chromadb.auth.token_authn.TokenAuthenticationServerProvider
-      - CHROMA_SERVER_AUTHN_CREDENTIALS=${CHROMA_TOKEN:-pmi-chroma-token}
-      - IS_PERSISTENT=TRUE
-      - ANONYMIZED_TELEMETRY=FALSE
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/heartbeat"]
-      interval: 15s
-      timeout: 5s
-      retries: 3
-      start_period: 10s
-
-  pmi-agent:
-    build:
-      context: ./pmi-agent
-      dockerfile: Dockerfile
-    ports:
-      - "8006:8006"
-    depends_on:
-      ollama:
-        condition: service_healthy
-      ollama-init:
-        condition: service_completed_successfully
-      chromadb:
-        condition: service_healthy
-      catalog-service:
-        condition: service_healthy
-    shm_size: "1gb"
-    environment:
-      OLLAMA_BASE_URL: http://ollama:11434
-      OLLAMA_MODEL: ${OLLAMA_MODEL:-mistral:7b-instruct}
-      CHROMA_HOST: chromadb
-      CHROMA_PORT: 8000
-      CHROMA_TOKEN: ${CHROMA_TOKEN:-pmi-chroma-token}
-      CATALOG_SERVICE_URL: http://catalog-service:8002
-      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:-internal_secret}
-      SECRET_KEY: ${SECRET_KEY:-dev-secret-key}
-      LOG_LEVEL: ${LOG_LEVEL:-INFO}
-      # URL для Playwright — nginx внутри Docker-сети
-      TARGET_APP_URL: http://nginx:80
-    volumes:
-      - pmi-outputs:/app/outputs
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8006/health"]
-      interval: 20s
-      timeout: 10s
-      retries: 5
-      start_period: 120s
-    restart: unless-stopped
-
-  # ============================================================
   # Redis (кеш + хранилище для rate limiter)
   # ============================================================
   redis:
@@ -509,9 +417,6 @@ volumes:
   minio-data:
   kafka-data:
   frontend-dist:
-  ollama-data:
-  chromadb-data:
-  pmi-outputs:
   redis-data:
   prometheus-data:
   grafana-data:
