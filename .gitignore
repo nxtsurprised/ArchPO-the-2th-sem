@@ -74,6 +74,7 @@ minio_data/
 
 # ─── Сгенерированные документы ────────────────────────────────────────────
 *.docx
+*.dotx
 *.xlsx
 !part1/generation-service/assets/*.dotx
 
