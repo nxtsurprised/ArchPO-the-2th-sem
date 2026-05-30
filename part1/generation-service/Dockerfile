@@ -1,6 +1,6 @@
-FROM python:3.12-slim
+FROM python:3.12-slim AS builder
 
-WORKDIR /app
+WORKDIR /build
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
@@ -8,9 +8,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libffi-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Зависимости сервиса (включают cryptography, PyJWT и т.д.)
 COPY generation-service/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY --from=builder /install /usr/local
 
 # Копируем shared как исходники (не устанавливаем как пакет — избегаем конфликта зависимостей)
 COPY shared/ /shared

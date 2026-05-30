@@ -4,12 +4,12 @@
 
 | Сервис | Порт | Что это |
 |--------|------|---------|
-| nginx | 8080 / 8443 | API Gateway + Frontend |
+| nginx | 8081 / 8444 | API Gateway + Frontend |
 | auth-service | 8001 | Аутентификация |
 | catalog-service | 8002 | Шаблоны, функции, документы |
 | generation-service | 8003 | Генерация .docx/.xlsx |
 | workflow-service | 8004 | Согласование |
-| pmi-agent | 8006 | Мультиагент (LLM + Playwright) |
+| /api/pmi/* | — | Заглушка ПМИ в nginx |
 | auth-postgres | — | PostgreSQL для auth (внутренний) |
 | workflow-postgres | — | PostgreSQL для workflow (внутренний) |
 | catalog-mongodb | — | MongoDB для catalog (внутренний) |
@@ -17,8 +17,6 @@
 | redis | 6379 | Кеш и rate limiter |
 | kafka | — | Очередь событий (внутренний) |
 | kafka-ui | 9080 | Веб-интерфейс Kafka |
-| ollama | 11434 | LLM-сервер |
-| chromadb | — | Векторная БД (внутренняя) |
 | prometheus | 90
 | alertmanager | 9093 | Алерты |
 | grafana | 3001 | Дашборды |
@@ -31,14 +29,12 @@
 ### Запуск и остановка
 
 ```bash
-# Запустить всю систему
-docker compose up -d
-
-# Запустить с пересборкой образов (после изменений кода)
-docker compose up -d --build
+# Собрать и запустить систему
+bash scripts/build.sh -t coursework
+bash scripts/deploy.sh -t coursework
 
 # Остановить всё (контейнеры + сети, данные сохраняются)
-docker compose down
+bash scripts/stop.sh -t coursework
 
 # Остановить и удалить все данные (volumes)
 docker compose down -v
@@ -73,10 +69,10 @@ docker compose ps | grep -v "Up\|healthy"
 
 ```bash
 # Логи одного сервиса (последние 100 строк)
-docker compose logs --tail=100 pmi-agent
+docker compose logs --tail=100 catalog-service
 
 # Следить в реальном времени
-docker compose logs -f pmi-agent
+docker compose logs -f catalog-service
 
 # Несколько сервисов сразу
 docker compose logs -f auth-service catalog-service
@@ -92,13 +88,12 @@ docker compose logs -t --tail=50
 ```bash
 # Зайти в контейнер
 docker exec -it part1-catalog-service-1 bash
-docker exec -it part1-pmi-agent-1 bash
 
 # Посмотреть переменные окружения сервиса
 docker exec part1-auth-service-1 env
 
 # Проверить health-статус
-docker inspect --format='{{.State.Health.Status}}' part1-pmi-agent-1
+docker inspect --format='{{.State.Health.Status}}' part1-catalog-service-1
 
 # Посмотреть кто занимает порт
 docker ps | grep 9090
@@ -127,26 +122,6 @@ docker compose up -d --build --force-recreate <service>
 ```bash
 # Достаточно restart, rebuild не нужен
 docker compose restart nginx
-```
-
-### Ollama не загрузила модель
-```bash
-# Запустить загрузку вручную
-docker exec part1-ollama-1 ollama pull mistral:7b-instruct
-
-# Проверить список загруженных моделей
-docker exec part1-ollama-1 ollama list
-```
-
-### pmi-agent завис на старте (ждёт ollama)
-```bash
-# Проверить статус ollama
-docker compose ps ollama
-
-# Если ollama unhealthy — перезапустить
-docker compose restart ollama
-# Подождать ~30 сек, затем
-docker compose restart pmi-agent
 ```
 
 ### Очистить кеш сборки (если образ не обновляется)
@@ -179,14 +154,11 @@ open http://localhost:9001           # minioadmin / minioadmin_change_me
 
 ### Запрос логов через Loki (в Grafana Explore)
 ```logql
-# Все логи pmi-agent
-{container="part1-pmi-agent-1"}
+# Все логи nginx
+{service="nginx"}
 
 # Только ошибки
-{container="part1-pmi-agent-1"} | json | level="error"
-
-# Конкретные события
-{container="part1-pmi-agent-1"} | json | event=~"planner_done|writer_done|task_completed"
+{service="nginx"} |= " 503 "
 
 # По любому сервису
 {service="catalog-service"}
@@ -194,11 +166,8 @@ open http://localhost:9001           # minioadmin / minioadmin_change_me
 
 ---
 
-## Два compose-файла в проекте
+## Compose-файл
 
 | Файл | Когда использовать |
 |------|-------------------|
-| `docker-compose.yml` | **Основной** — вся система |
-| `pmi-agent/docker-compose.yml` | Изолированная разработка агента без основной системы |
-
-> **Не запускать оба одновременно** — конфликт на порту 8006 (pmi-agent).
+| `docker-compose.yml` | Основной учебный стенд без тяжелого PMI-agent |

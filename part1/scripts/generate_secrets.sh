@@ -8,6 +8,25 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(dirname "$SCRIPT_DIR")"
 SECRETS_DIR="$ROOT_DIR/secrets"
 
+random_hex() {
+    openssl rand -hex 24
+}
+
+fernet_key() {
+    python3 -c "import base64, os; print(base64.urlsafe_b64encode(os.urandom(32)).decode())"
+}
+
+set_env_value() {
+    local key="$1"
+    local value="$2"
+    local file="$ROOT_DIR/.env"
+    if grep -q "^${key}=" "$file"; then
+        perl -0pi -e "s|^${key}=.*$|${key}=${value}|m" "$file"
+    else
+        printf '%s=%s\n' "$key" "$value" >> "$file"
+    fi
+}
+
 echo "=== Генерация секретов ==="
 
 mkdir -p "$SECRETS_DIR"
@@ -27,11 +46,23 @@ fi
 if [ ! -f "$ROOT_DIR/.env" ]; then
     echo "→ Создаю .env из .env.example..."
     cp "$ROOT_DIR/.env.example" "$ROOT_DIR/.env"
-    echo "  ✓ .env создан — заполните реальные значения перед деплоем"
+    set_env_value "AUTH_DB_PASSWORD" "$(random_hex)"
+    set_env_value "WORKFLOW_DB_PASSWORD" "$(random_hex)"
+    set_env_value "CATALOG_MONGO_PASSWORD" "$(random_hex)"
+    set_env_value "MINIO_SECRET_KEY" "$(random_hex)"
+    set_env_value "INTERNAL_API_SECRET" "$(random_hex)"
+    set_env_value "ENCRYPT_KEY_PHONE" "$(fernet_key)"
+    set_env_value "ENCRYPT_KEY_TOTP" "$(fernet_key)"
+    echo "  ✓ .env создан с локальными секретами"
 else
     echo "  → .env уже существует, пропускаю"
+    if grep -q "generate_me" "$ROOT_DIR/.env"; then
+        echo "  → Обновляю плейсхолдеры ENCRYPT_KEY_* на валидные Fernet-ключи"
+        set_env_value "ENCRYPT_KEY_PHONE" "$(fernet_key)"
+        set_env_value "ENCRYPT_KEY_TOTP" "$(fernet_key)"
+    fi
 fi
 
 echo ""
 echo "=== Готово ==="
-echo "Теперь можно запускать: docker-compose up --build"
+echo "Теперь можно запускать: bash scripts/deploy.sh -t coursework"

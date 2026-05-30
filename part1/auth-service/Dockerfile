@@ -1,3 +1,16 @@
+FROM python:3.12-slim AS builder
+
+WORKDIR /build
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    libffi-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY auth-service/requirements.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+
 FROM python:3.12-slim
 
 WORKDIR /app
@@ -6,9 +19,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Зависимости сервиса (включают cryptography и т.д.)
-COPY auth-service/requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY --from=builder /install /usr/local
 
 # Копируем shared как исходники (PYTHONPATH вместо pip install /shared)
 COPY shared/ /shared
